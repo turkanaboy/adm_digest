@@ -1,0 +1,70 @@
+# Sources are intentionally configurable so Admissions can tune coverage over time.
+# rss_url is preferred. If a source has subscription-only access, keep it in link-only
+# mode unless the institution confirms automated access is permitted.
+sources:
+  - name: Inside Higher Ed - Admissions
+    url: https://www.insidehighered.com/news/admissions
+    rss_url: https://www.insidehighered.com/rss.xml
+    category: national_higher_ed
+    access: public
+
+  - name: Higher Ed Dive
+    url: https://www.highereddive.com/
+    rss_url: https://www.highereddive.com/feeds/news/
+    category: national_higher_ed
+    access: public
+
+  - name: The Chronicle of Higher Education
+    url: https://www.chronicle.com/
+    rss_url: null
+    category: national_higher_ed
+    access: institutional_subscription
+    note: "Use link/metadata only unless automated authenticated access is explicitly approved."
+
+  - name: NACAC
+    url: https://www.nacacnet.org/news--publications/
+    rss_url: null
+    category: admissions_association
+    access: public
+
+  - name: AACRAO
+    url: https://www.aacrao.org/resources/newsletters-blogs
+    rss_url: null
+    category: enrollment_operations
+    access: public
+
+  - name: Common App News
+    url: https://www.commonapp.org/news
+    rss_url: null
+    category: application_platform
+    access: public
+
+  - name: Federal Student Aid - Electronic Announcements
+    url: https://fsapartners.ed.gov/knowledge-center/library/electronic-announcements
+    rss_url: null
+    category: financial_aid_policy
+    access: public
+
+  - name: U.S. Department of Education News
+    url: https://www.ed.gov/news/press-releases
+    rss_url: https://www.ed.gov/rss.xml
+    category: federal_policy
+    access: public
+
+  - name: SUNY News
+    url: https://www.suny.edu/suny-news/
+    rss_url: null
+    category: suny
+    access: public
+
+  - name: Binghamton University News
+    url: https://www.binghamton.edu/news/
+    rss_url: https://www.binghamton.edu/news/rss.xml
+    category: binghamton
+    access: public
+
+  - name: Visit Binghamton News
+    url: https://visitbinghamton.org/
+    rss_url: null
+    category: binghamton_area
+    access: public
