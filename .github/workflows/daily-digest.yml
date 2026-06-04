@@ -85,7 +85,7 @@ jobs:
           fi
           git commit -m "Add daily admissions digest"
 
-          for attempt in 1 2 3; do
+          for attempt in 1 2 3 4 5; do
             echo "Push attempt ${attempt}: rebasing digest commit onto origin/${branch}."
             git fetch origin "${branch}"
             git pull --rebase --autostash origin "${branch}"
@@ -94,8 +94,8 @@ jobs:
               exit 0
             fi
             echo "Push attempt ${attempt} failed; remote changed again. Retrying after a short delay."
-            sleep $((attempt * 5))
+            sleep $((attempt * 10))
           done
 
-          echo "Unable to push digest archive after 3 attempts."
+          echo "Unable to push digest archive after 5 attempts."
           exit 1
