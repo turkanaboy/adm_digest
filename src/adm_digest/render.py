@@ -65,11 +65,15 @@ def render_markdown(payload: dict) -> str:
             ]
         )
 
-    lines.extend(["## Binghamton Area Brief", "", "_Positive local context for recruitment conversations._", ""])
+    lines.extend(["## Binghamton Area Brief", "", "_Positive local Binghamton-area news for recruitment context._", ""])
     area_items = payload.get("binghamton_area_brief", [])
     if area_items:
         for item in area_items:
-            lines.append(f"- {item}")
+            text, url = _brief_text_and_url(item)
+            if url:
+                lines.append(f"- {text} ([source]({url}))")
+            else:
+                lines.append(f"- {text}")
     else:
         lines.append("- No positive Binghamton-area items surfaced in today's configured feeds.")
     lines.append("")
@@ -98,8 +102,9 @@ def render_html(payload: dict) -> str:
     header_image_url = payload.get("email", {}).get("header_image_url") or payload.get("header_image_url")
     preheader = f"{payload['title']} for {digest_date.strftime('%B %-d, %Y')}"
     articles = payload.get("articles", [])
-    local_items = payload.get("binghamton_area_brief", []) or [
-        "No positive Binghamton-area items surfaced in today's configured feeds."
+    raw_local_items = payload.get("binghamton_area_brief", [])
+    local_items = raw_local_items or [
+        {"text": "No positive Binghamton-area items surfaced in today's configured feeds.", "url": ""}
     ]
 
     article_cards = "".join(
@@ -196,22 +201,46 @@ def _section_heading(title: str, eyebrow: str | None = None) -> str:
     )
 
 
-def _render_local_section(items: list[str]) -> str:
-    bullets = "".join(
-        f"<li style='margin:0 0 10px 0;color:{INK};font-size:14px;line-height:1.6;'>{escape(item)}</li>"
-        for item in items
-    )
+def _render_local_section(items: list) -> str:
+    bullet_items: list[str] = []
+    for item in items:
+        text, url = _brief_text_and_url(item)
+        if not text:
+            continue
+        if url:
+            host = _host_label(url)
+            link_html = (
+                f' <a href="{escape(url, quote=True)}" '
+                f'style="color:{BINGHAMTON_DEEP_GREEN};text-decoration:underline;font-weight:600;">'
+                f'{escape(host)}'
+                '</a>'
+            )
+        else:
+            link_html = ""
+        bullet_items.append(
+            f"<li style='margin:0 0 10px 0;color:{INK};font-size:14px;line-height:1.6;'>"
+            f"{escape(text)}{link_html}"
+            "</li>"
+        )
+    bullets = "".join(bullet_items)
     body = (
         f"<p style='margin:0 0 12px 0;color:{MUTED};font-size:13px;line-height:1.55;'>"
-        "A short read on positive Binghamton-area happenings &mdash; useful color for "
+        "Positive local Binghamton-area happenings &mdash; useful color for "
         "recruitment conversations about place and context."
         "</p>"
         f"<ul style='margin:0;padding:0 0 0 20px;'>{bullets}</ul>"
     )
     return (
-        _section_heading('Binghamton Area Brief', 'Local color &middot; positive notes only')
+        _section_heading('Binghamton Area Brief', 'Local Binghamton-area news &middot; positive only')
         + _card(None, body)
     )
+
+
+def _brief_text_and_url(item) -> tuple[str, str]:
+    """Accept either the new {text, url} object form or a legacy plain string."""
+    if isinstance(item, dict):
+        return str(item.get("text", "")).strip(), str(item.get("url", "")).strip()
+    return str(item).strip(), ""
 
 
 def _render_article_card(index: int, article: dict, image_url: str | None) -> str:

@@ -89,6 +89,7 @@ def generate_digest(args: argparse.Namespace) -> Path:
             local_articles=local_selected,
             settings=settings,
             digest_date=now.date().isoformat(),
+            archive_dir=archive_dir,
         )
     else:
         content = build_digest_without_openai(articles=selected, local_articles=local_selected)

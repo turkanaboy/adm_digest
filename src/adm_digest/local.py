@@ -46,7 +46,11 @@ NEGATIVE_LOCAL_TERMS = {
     "theft",
 }
 
-LOCAL_CATEGORIES = {"suny", "binghamton", "binghamton_area"}
+# The Binghamton Area Brief is intentionally focused on the Binghamton AREA
+# (local news, economic development, businesses, community happenings) rather
+# than the university itself or SUNY-wide news. So only the binghamton_area
+# category contributes candidates to the brief.
+LOCAL_CATEGORIES = {"binghamton_area"}
 
 
 def is_local_article(article: Article) -> bool:
@@ -62,8 +66,6 @@ def local_positivity_score(article: Article) -> int:
     for term in NEGATIVE_LOCAL_TERMS:
         if term in text:
             score -= 5
-    if article.category in {"suny", "binghamton"}:
-        score += 1
     return score
 
 

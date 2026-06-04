@@ -78,11 +78,132 @@ def fetch_rss(source: Source) -> list[Article]:
     return articles
 
 
+# URL path fragments that almost always indicate navigation, category, tag,
+# search, login, calendar, or other non-article pages. When a fallback scraper
+# encounters these we drop the link instead of treating it as an article.
+_NON_ARTICLE_URL_FRAGMENTS = (
+    "/calendar",
+    "/category/",
+    "/categories/",
+    "/tag/",
+    "/tags/",
+    "/topics/",
+    "/topic/",
+    "/section/",
+    "/sections/",
+    "/author/",
+    "/authors/",
+    "/staff/",
+    "/people/",
+    "/contact",
+    "/about",
+    "/privacy",
+    "/terms",
+    "/login",
+    "/signin",
+    "/signup",
+    "/subscribe",
+    "/newsletter",
+    "/rss",
+    "/feed",
+    "/search",
+    "/sitemap",
+    "/archive",
+    "/page/",
+    "/jobs",
+    "/careers",
+    "/events",
+    "/podcast",
+    "/podcasts",
+    "/video",
+    "/videos",
+)
+
+# Title-level red flags. Section headers and nav labels are usually short
+# title-case phrases without verbs. We require a longer headline-like title
+# and reject obvious section names.
+_NAV_TITLE_BLOCKLIST = {
+    "home",
+    "news",
+    "about",
+    "about us",
+    "contact",
+    "contact us",
+    "events",
+    "events calendar",
+    "calendar",
+    "staff",
+    "staff directory",
+    "directory",
+    "subscribe",
+    "newsletter",
+    "search",
+    "menu",
+    "more",
+    "read more",
+    "all news",
+    "press releases",
+    "arts & culture",
+    "arts and culture",
+    "athletics",
+    "academics",
+    "campus life",
+    "admissions",
+    "alumni",
+    "giving",
+    "research",
+    "podcast",
+    "video",
+    "videos",
+}
+
+
+def _looks_like_article_url(url: str) -> bool:
+    """Heuristic for whether a scraped link is plausibly a real article.
+
+    Real article URLs typically include a date segment, a long descriptive
+    slug, or end in .html. Index, navigation, and category pages have short
+    paths and frequently include one of the known non-article fragments.
+    """
+    lowered = url.lower()
+    if any(fragment in lowered for fragment in _NON_ARTICLE_URL_FRAGMENTS):
+        return False
+    # Strip scheme + host to inspect path.
+    try:
+        path = lowered.split("//", 1)[1].split("/", 1)[1]
+    except IndexError:
+        return False
+    if not path or path in {"index.html", "index.htm"}:
+        return False
+    # Heuristic 1: contains a 4-digit year suggests a dated article URL.
+    has_year_segment = any(part.isdigit() and len(part) == 4 and 2000 <= int(part) <= 2099 for part in path.split("/"))
+    # Heuristic 2: a sufficiently long slug suggests an article rather than a section.
+    last_segment = path.rstrip("/").rsplit("/", 1)[-1]
+    has_long_slug = len(last_segment) >= 25 and "-" in last_segment
+    return has_year_segment or has_long_slug or lowered.endswith((".html", ".htm"))
+
+
+def _looks_like_article_title(title: str) -> bool:
+    lowered = title.strip().lower()
+    if lowered in _NAV_TITLE_BLOCKLIST:
+        return False
+    if len(title) < 30:
+        # Real headlines are almost always at least ~30 chars.
+        return False
+    # Real headlines almost always contain a space; nav labels often don't.
+    if " " not in title.strip():
+        return False
+    return True
+
+
 def fetch_page_links(source: Source, limit: int = 20) -> list[Article]:
     """Fallback discovery for sources without RSS.
 
-    This intentionally collects titles, URLs, and visible snippets only. It does not
-    bypass logins or attempt authenticated/paywalled scraping.
+    This intentionally collects titles, URLs, and visible snippets only. It
+    does not bypass logins or attempt authenticated/paywalled scraping.
+    Links that look like navigation, category indexes, calendars, staff
+    directories, or other non-article pages are filtered out so they cannot
+    surface as fake "articles" in the digest.
     """
     try:
         response = requests.get(source.url, timeout=REQUEST_TIMEOUT_SECONDS, headers={"User-Agent": USER_AGENT})
@@ -95,11 +216,13 @@ def fetch_page_links(source: Source, limit: int = 20) -> list[Article]:
     seen: set[str] = set()
     for anchor in soup.find_all("a", href=True):
         title = anchor.get_text(" ", strip=True)
-        if len(title) < 12:
+        if not _looks_like_article_title(title):
             continue
         href = requests.compat.urljoin(source.url, anchor["href"])
         key = href.split("#", 1)[0].rstrip("/").lower()
         if key in seen or not href.startswith("http"):
+            continue
+        if not _looks_like_article_url(href):
             continue
         seen.add(key)
         articles.append(
