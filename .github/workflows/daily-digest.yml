@@ -79,16 +79,44 @@ jobs:
           branch="${GITHUB_REF_NAME}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add digests data/seen_articles.json
-          if git diff --cached --quiet; then
+
+          changed_files="$(git status --porcelain -- digests data/seen_articles.json | awk '{print $2}')"
+          if [ -z "${changed_files}" ]; then
             echo "No digest archive or seen-article updates to commit."
             exit 0
           fi
-          git commit -m "Add daily admissions digest"
+
+          tmpdir="$(mktemp -d)"
+          cleanup() {
+            rm -rf "${tmpdir}"
+          }
+          trap cleanup EXIT
+
+          echo "Saving generated digest artifacts before syncing with origin/${branch}."
+          while IFS= read -r file; do
+            [ -n "${file}" ] || continue
+            mkdir -p "${tmpdir}/$(dirname "${file}")"
+            cp "${file}" "${tmpdir}/${file}"
+          done <<< "${changed_files}"
 
           for attempt in 1 2 3 4 5; do
-            echo "Push attempt ${attempt}: pulling/rebasing digest commit onto origin/${branch}."
-            git pull --rebase --autostash origin "${branch}"
+            echo "Push attempt ${attempt}: resetting to origin/${branch} and reapplying generated artifacts."
+            git fetch origin "${branch}"
+            git reset --hard "origin/${branch}"
+
+            while IFS= read -r file; do
+              [ -n "${file}" ] || continue
+              mkdir -p "$(dirname "${file}")"
+              cp "${tmpdir}/${file}" "${file}"
+            done <<< "${changed_files}"
+
+            git add digests data/seen_articles.json
+            if git diff --cached --quiet; then
+              echo "Remote already contains these digest archive and seen-article updates."
+              exit 0
+            fi
+            git commit -m "Add daily admissions digest"
+
             if git push origin "HEAD:${branch}"; then
               echo "Digest archive pushed to ${branch}."
               exit 0
