@@ -21,12 +21,13 @@ The workflow also supports manual runs through `workflow_dispatch`.
 
 Before turning this on for the team, provide or configure:
 
-1. `OPENAI_API_KEY`: add this as a GitHub Actions repository secret.
-2. Email delivery details: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_FROM`, and `EMAIL_TO`. `EMAIL_TO` can be the all-admissions distribution list or a comma-separated pilot list first.
-3. Preferred sender name/address: confirm whether the digest should come from a shared mailbox such as `admissions-digest@...`.
-4. Slack preference: if you want a Slack copy, create or approve a Slack incoming webhook for the target channel and add it as `SLACK_WEBHOOK_URL`. Free Slack workspaces can generally use incoming webhooks if the workspace allows the app.
-5. Chronicle approach: confirm whether the digest should remain link/metadata only for Chronicle, or whether the institution can approve a specific automated access method.
-6. Source tuning: send any publications, local outlets, or terms you want added or excluded after you see the first few digests.
+1. `OPENAI_API_KEY`: add a valid OpenAI API key as a GitHub Actions repository secret. If an API key was ever pasted into chat, email, or a ticket, revoke it and create a fresh key before storing it in GitHub.
+2. Email delivery details: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_FROM`, and `EMAIL_TO`.
+3. Pilot recipient list: start with `EMAIL_TO=tlowell@binghamton.edu`; later this can become the full admissions distribution list.
+4. Preferred sender address: try `EMAIL_FROM=tlowell@binghamton.edu` only if Binghamton IT allows SMTP/app-password sending from that account. If institutional SMTP blocks that, use a dedicated shared mailbox or a temporary personal sender such as Gmail until a Binghamton-approved mailbox is available.
+5. Slack preference: Slack is on hold for now. Leave `slack.enabled: false` and do not set `SLACK_WEBHOOK_URL` until you want a Slack copy.
+6. Chronicle approach: keep Chronicle metadata/link-only for now. Do not automate SSO login or scrape paywalled Chronicle text.
+7. Source tuning: send any publications, local outlets, or terms you want added or excluded after you see the first few digests.
 
 ## Required GitHub Actions secrets
 
@@ -45,6 +46,51 @@ Optional Slack posting:
 - `SLACK_WEBHOOK_URL`: Incoming webhook URL for a Slack channel.
 
 Slack incoming webhooks can work on free Slack workspaces if the workspace allows the app/webhook installation. The digest currently keeps Slack disabled in `config/settings.yaml`; set `slack.enabled` to `true` or run with `--post-slack` once a webhook is available.
+
+## Step-by-step email setup
+
+### Option A: Binghamton / Microsoft 365 SMTP, preferred if IT allows it
+
+1. Ask Binghamton IT whether authenticated SMTP is allowed for your account or for a shared mailbox. Many Microsoft 365 tenants disable SMTP AUTH by default.
+2. If IT approves SMTP AUTH, ask for the exact SMTP settings. Common Microsoft 365 values are:
+   - `SMTP_HOST=smtp.office365.com`
+   - `SMTP_PORT=587`
+   - `SMTP_USERNAME=tlowell@binghamton.edu`
+   - `EMAIL_FROM=tlowell@binghamton.edu`
+3. Confirm what should be used for `SMTP_PASSWORD`. This may be your account password, but in many environments it must be an app password, service-account password, or shared-mailbox credential. Do not commit this value to the repository.
+4. In GitHub, open the repository, then go to **Settings → Secrets and variables → Actions → New repository secret**.
+5. Add these repository secrets one at a time:
+   - `OPENAI_API_KEY`: fresh OpenAI key, not one that has been pasted publicly.
+   - `SMTP_HOST`: value from IT, commonly `smtp.office365.com`.
+   - `SMTP_PORT`: commonly `587`.
+   - `SMTP_USERNAME`: commonly `tlowell@binghamton.edu`.
+   - `SMTP_PASSWORD`: approved SMTP/app/service password.
+   - `EMAIL_FROM`: commonly `tlowell@binghamton.edu`.
+   - `EMAIL_TO`: start with `tlowell@binghamton.edu`.
+6. Run the workflow manually from **Actions → Daily Admissions Digest → Run workflow**.
+7. If Microsoft blocks the send, ask IT for the SMTP AUTH/send-as policy error and either enable a shared mailbox/service account or use Option B temporarily.
+
+### Option B: Temporary Gmail sender
+
+Use this only if Binghamton SMTP is blocked while you wait for an approved institutional sending path.
+
+1. Use or create a Gmail account that is acceptable as a temporary sender.
+2. Turn on 2-Step Verification for that Google account.
+3. Create a Google app password for Mail.
+4. Add these GitHub Actions secrets:
+   - `SMTP_HOST=smtp.gmail.com`
+   - `SMTP_PORT=587`
+   - `SMTP_USERNAME=tylermlowell@gmail.com`
+   - `SMTP_PASSWORD=<the Google app password>`
+   - `EMAIL_FROM=tylermlowell@gmail.com`
+   - `EMAIL_TO=tlowell@binghamton.edu`
+5. Run the workflow manually and confirm the digest arrives. Later, replace these secrets with a Binghamton-approved sender.
+
+### Notes
+
+- `EMAIL_TO` supports comma-separated recipients, so the pilot can become `person1@binghamton.edu,person2@binghamton.edu` or a single distribution-list address later.
+- Do not store API keys, SMTP passwords, or app passwords in files, commits, Slack messages, or screenshots.
+- GitHub Actions secrets are referenced by the workflow but are not printed by this app.
 
 ## Chronicle access recommendation
 
