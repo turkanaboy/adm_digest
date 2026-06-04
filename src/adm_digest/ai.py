@@ -37,8 +37,8 @@ Requirements:
 - message_of_the_day: strategic, admissions-focused, motivational, 2-4 sentences.
 - affirmation_of_the_day: powerful, uplifting, motivating, horoscope-esque but not mystical or overdone, for admissions counselors/readers/operations staff.
 - dad_joke_of_the_day: light, general audience, not necessarily admissions related.
-- binghamton_area_brief: 2-4 short bullets about positive Binghamton/SUNY/local-area items from the local inputs. Prioritize upbeat, recruitment-useful coverage such as community events, arts/culture, economic development, food, outdoors, student life, and regional momentum. Avoid crime, accidents, scandals, deaths, or negative coverage unless it is directly necessary for admissions awareness.
-- articles: up to {settings['digest']['max_articles']} items, preserving URLs, focused on undergraduate admissions for a four-year doctoral-granting public institution.
+- binghamton_area_brief: exactly up to {settings['digest'].get('binghamton_area_max_items', 2)} short bullets about positive Binghamton/SUNY/local-area items pulled ONLY from the local Binghamton-area candidate inputs. Keep this section small — it is a brief at the end, not the focus. Prioritize upbeat, recruitment-useful coverage such as community events, arts/culture, economic development, food, outdoors, student life, businesses opening, and regional momentum. Strictly exclude crime, lawsuits, accidents, scandals, abuse, deaths, fires, investigations, or any other negative framing. If no positive local items are supplied, return an empty array.
+- articles: up to {settings['digest']['max_articles']} items, preserving URLs, drawn ONLY from the Admissions article inputs below. Every item MUST be focused on undergraduate admissions, enrollment, financial aid, recruitment, application policy, FAFSA, demographic shifts, test policy, or related higher-education-wide topics from major higher education publications (Inside Higher Ed, Higher Ed Dive, Chronicle, NACAC, AACRAO, Common App, Federal Student Aid, U.S. Dept of Education). Do NOT place any Binghamton-area, SUNY-campus-local, or general local news in this list — those belong only in binghamton_area_brief. Do NOT include negative news (lawsuits, crime, abuse, scandals) in this list.
 - For each article include: title, publication, url, why_it_matters, summary_bullets, quote.
 - summary_bullets: 3-5 concise bullets.
 - quote: one short important quote or excerpt if available from supplied metadata/excerpt; if no quote is available, write "No short source quote available from the supplied excerpt."
@@ -92,7 +92,7 @@ def build_digest_without_openai(*, articles: list[Article], local_articles: list
         "affirmation_of_the_day": "Your steady work turns uncertainty into direction for students and families. Today, your attention to detail, patience, and humanity matter more than you may ever hear back.",
         "dad_joke_of_the_day": "I only know 25 letters of the alphabet. I don't know y.",
         "binghamton_area_brief": [
-            f"{article.source}: {article.title} — {article.url}" for article in (local_articles or [])[:4]
+            f"{article.source}: {article.title} — {article.url}" for article in (local_articles or [])[:2]
         ],
         "articles": [
             {

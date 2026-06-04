@@ -4,6 +4,13 @@ import re
 
 from adm_digest.models import Article
 
+# Categories that supply Binghamton-area / SUNY / local items. Articles from
+# these sources are routed to the Binghamton Area Brief at the end of the
+# digest, NOT into the Top Undergraduate Admissions Articles list. The Top
+# Admissions list is reserved for major higher education publications focused
+# on undergraduate admissions.
+LOCAL_CATEGORIES = {"suny", "binghamton", "binghamton_area"}
+
 ADMISSIONS_KEYWORDS: dict[str, int] = {
     "undergraduate admissions": 10,
     "admissions": 7,
@@ -35,8 +42,6 @@ ADMISSIONS_KEYWORDS: dict[str, int] = {
     "student search": 8,
     "demographic cliff": 9,
     "college access": 7,
-    "suny": 8,
-    "binghamton": 10,
 }
 
 EXCLUDE_PATTERNS = [
@@ -44,6 +49,39 @@ EXCLUDE_PATTERNS = [
     re.compile(r"\bmedical school admissions\b", re.IGNORECASE),
     re.compile(r"\blaw school admissions\b", re.IGNORECASE),
 ]
+
+# Words and phrases that signal a negative-news framing. We do not want these
+# in the Top Undergraduate Admissions Articles section regardless of whether
+# they technically mention an admissions keyword.
+NEGATIVE_NEWS_TERMS = {
+    "abuse",
+    "arrest",
+    "arrested",
+    "assault",
+    "charged",
+    "crash",
+    "crime",
+    "criminal",
+    "death",
+    "died",
+    "fatal",
+    "fire",
+    "fraud",
+    "homicide",
+    "indicted",
+    "inappropriate",
+    "investigation",
+    "killed",
+    "lawsuit",
+    "misconduct",
+    "murder",
+    "scandal",
+    "shooting",
+    "stabbed",
+    "stolen",
+    "theft",
+    "victim",
+}
 
 
 def score_article(article: Article) -> int:
@@ -57,10 +95,39 @@ def score_article(article: Article) -> int:
     for pattern in EXCLUDE_PATTERNS:
         if pattern.search(text):
             score -= 8
-    if article.category in {"suny", "binghamton", "binghamton_area"}:
-        score += 5
     return max(score, 0)
 
 
+def has_negative_framing(article: Article) -> bool:
+    """Return True when the article reads like negative news.
+
+    Used to keep crime / lawsuit / scandal items out of the admissions-focused
+    Top Articles section. Negative items about admissions policy itself are
+    rare; the safer default is to exclude negative-framing items from the
+    headline list and let the Binghamton brief stay strictly positive.
+    """
+    text = " ".join(
+        part for part in [article.title, article.summary or "", article.excerpt or ""] if part
+    ).lower()
+    return any(term in text for term in NEGATIVE_NEWS_TERMS)
+
+
+def is_admissions_focused(article: Article, minimum_score: int = 7) -> bool:
+    """True when an article belongs in the Top Undergraduate Admissions list.
+
+    Rules:
+    - The source must be a national / association / federal-policy higher-ed
+      outlet, not a local Binghamton-area feed.
+    - It must clear the admissions-keyword score threshold.
+    - It must not read as negative news (crime, lawsuit, scandal, etc.).
+    """
+    if article.category in LOCAL_CATEGORIES:
+        return False
+    if has_negative_framing(article):
+        return False
+    return score_article(article) >= minimum_score
+
+
 def is_relevant(article: Article, minimum_score: int = 5) -> bool:
+    """Legacy helper retained for tests/callers; prefer is_admissions_focused."""
     return score_article(article) >= minimum_score

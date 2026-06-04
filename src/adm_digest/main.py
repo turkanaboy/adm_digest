@@ -11,7 +11,7 @@ from adm_digest.emailer import send_email
 from adm_digest.fetch import enrich_with_public_full_text, fetch_articles
 from adm_digest.local import is_positive_local_article, local_positivity_score
 from adm_digest.render import render_html, render_markdown
-from adm_digest.scoring import score_article
+from adm_digest.scoring import is_admissions_focused, score_article
 from adm_digest.seen import load_seen, save_seen
 from adm_digest.slack import post_to_slack
 
@@ -51,7 +51,11 @@ def generate_digest(args: argparse.Namespace) -> Path:
         if not recent_enough(article.published_at, int(digest_settings["lookback_hours"])):
             continue
         article.relevance_score = score_article(article)
-        if article.relevance_score > 0:
+        # Top Undergraduate Admissions Articles are strictly admissions-focused
+        # from major higher-ed publications. Local Binghamton-area sources and
+        # negative-news framing are routed away from this section so the Top
+        # list never fills up with crime/lawsuit/local-misc items.
+        if is_admissions_focused(article):
             filtered.append(article)
         if is_positive_local_article(article):
             local_candidates.append(article)
