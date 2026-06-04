@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
+from bs4 import BeautifulSoup
 import feedparser
 import requests
-from bs4 import BeautifulSoup
+from requests.compat import urljoin
 from dateutil import parser as date_parser
 
 from adm_digest.models import Article, Source
@@ -29,6 +30,26 @@ def _parse_date(value: str | None) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
+def _entry_image_url(entry) -> str | None:
+    base_url = getattr(entry, "link", "") or ""
+    for attr in ("media_content", "media_thumbnail"):
+        for item in getattr(entry, attr, []) or []:
+            url = item.get("url") if isinstance(item, dict) else None
+            if url:
+                return urljoin(base_url, str(url))
+    for enclosure in getattr(entry, "enclosures", []) or []:
+        url = enclosure.get("href") if isinstance(enclosure, dict) else None
+        mime_type = enclosure.get("type", "") if isinstance(enclosure, dict) else ""
+        if url and str(mime_type).startswith("image/"):
+            return urljoin(base_url, str(url))
+    summary_html = getattr(entry, "summary", "") or ""
+    soup = BeautifulSoup(summary_html, "html.parser")
+    image = soup.find("img", src=True)
+    if image:
+        return urljoin(base_url, str(image["src"]))
+    return None
+
+
 def fetch_rss(source: Source) -> list[Article]:
     if not source.rss_url:
         return []
@@ -50,6 +71,7 @@ def fetch_rss(source: Source) -> list[Article]:
                 summary=summary or None,
                 excerpt=summary[:600] if summary else None,
                 category=source.category,
+                image_url=_entry_image_url(entry),
                 raw={"access": source.access},
             )
         )

@@ -25,6 +25,7 @@ class Article:
     excerpt: str | None = None
     category: str = "general"
     relevance_score: int = 0
+    image_url: str | None = None
     raw: dict[str, Any] = field(default_factory=dict)
 
     @property

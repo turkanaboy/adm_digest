@@ -16,6 +16,8 @@ digest:
 email:
   subject_prefix: "Admissions Digest"
   from_name: "Admissions Digest Bot"
+  # Optional externally hosted header image. Leave blank to use the branded color header only.
+  header_image_url: ""
 
 slack:
   enabled: false

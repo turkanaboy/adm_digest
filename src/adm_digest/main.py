@@ -9,11 +9,19 @@ from adm_digest.ai import build_digest_with_openai, build_digest_without_openai,
 from adm_digest.config import load_sources, load_yaml
 from adm_digest.emailer import send_email
 from adm_digest.fetch import enrich_with_public_full_text, fetch_articles
-from adm_digest.render import render_markdown
 from adm_digest.local import is_positive_local_article, local_positivity_score
+from adm_digest.render import render_html, render_markdown
 from adm_digest.scoring import score_article
 from adm_digest.seen import load_seen, save_seen
 from adm_digest.slack import post_to_slack
+
+
+def article_image_map(articles) -> dict[str, str]:
+    images: dict[str, str] = {}
+    for article in articles:
+        if article.image_url:
+            images[article.key] = article.image_url
+    return images
 
 
 def recent_enough(published_at: datetime | None, lookback_hours: int) -> bool:
@@ -86,8 +94,11 @@ def generate_digest(args: argparse.Namespace) -> Path:
         "date": now.date(),
         "disclaimer": digest_settings["disclaimer"],
         **content,
+        "article_images": article_image_map(selected),
+        "email": settings.get("email", {}),
     }
     markdown = render_markdown(payload)
+    html = render_html(payload)
     output_path = archive_dir / f"{now.date().isoformat()}.md"
     output_path.write_text(markdown, encoding="utf-8")
 
@@ -97,7 +108,7 @@ def generate_digest(args: argparse.Namespace) -> Path:
 
     if args.send_email:
         subject = f"{settings['email']['subject_prefix']}: {now.strftime('%B %-d, %Y')}"
-        send_email(subject, markdown)
+        send_email(subject, markdown, html_body=html, from_name=settings.get("email", {}).get("from_name"))
 
     if args.post_slack or settings.get("slack", {}).get("enabled"):
         post_to_slack(f"{settings['email']['subject_prefix']} is ready: {output_path.name}\n\n{markdown[:2500]}")

@@ -3,9 +3,10 @@ from __future__ import annotations
 import os
 import smtplib
 from email.message import EmailMessage
+from email.utils import formataddr
 
 
-def send_email(subject: str, body: str) -> None:
+def send_email(subject: str, body: str, html_body: str | None = None, from_name: str | None = None) -> None:
     host = os.environ.get("SMTP_HOST")
     port = int(os.environ.get("SMTP_PORT") or "587")
     username = os.environ.get("SMTP_USERNAME")
@@ -18,9 +19,11 @@ def send_email(subject: str, body: str) -> None:
 
     message = EmailMessage()
     message["Subject"] = subject
-    message["From"] = sender
+    message["From"] = formataddr((from_name, sender)) if from_name else sender
     message["To"] = ", ".join(recipients)
     message.set_content(body)
+    if html_body:
+        message.add_alternative(html_body, subtype="html")
 
     with smtplib.SMTP(host, port, timeout=30) as smtp:
         smtp.starttls()

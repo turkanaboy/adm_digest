@@ -94,6 +94,19 @@ Use this only if Binghamton SMTP is blocked while you wait for an approved insti
 - Do not store API keys, SMTP passwords, or app passwords in files, commits, Slack messages, or screenshots.
 - GitHub Actions secrets are referenced by the workflow but are not printed by this app.
 
+## HTML email design
+
+Email delivery sends a multipart message: a plain-text Markdown version for compatibility and a styled HTML version for modern email clients. The HTML version is intentionally designed like a digest letter, with a Binghamton-inspired deep-green header, gold accenting, card-based sections, styled quotes, and prominent article buttons.
+
+Images are supported conservatively:
+
+- If an RSS feed exposes a public article thumbnail, the HTML email can display it above that article card.
+- `email.header_image_url` in `config/settings.yaml` can point to an externally hosted header image if you later want a hero photo. Leave it blank to use the branded color header only.
+- Images must be publicly reachable by recipients' email clients; the app does not attach or scrape private images.
+- Many email clients block remote images by default, so every article remains readable without images.
+
+The color treatment is close to Binghamton branding but intentionally avoids embedding official logos or protected assets until you have an approved image URL or brand-approved asset workflow.
+
 ## Chronicle access recommendation
 
 The Chronicle of Higher Education is configured as an institutional-subscription source. Because Binghamton access is through institutional SSO, the first version intentionally does **not** attempt to automate login or scrape paywalled pages. It should use public metadata, links, short available excerpts, or manually supplied links unless the institution confirms that automated authenticated access is permitted.
