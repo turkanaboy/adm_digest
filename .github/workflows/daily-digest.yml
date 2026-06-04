@@ -13,7 +13,8 @@ permissions:
 
 concurrency:
   group: daily-admissions-digest-${{ github.ref }}
-  cancel-in-progress: false
+  # Cancel stale/manual duplicate runs so only the newest digest run can reach the archive push.
+  cancel-in-progress: true
 
 jobs:
   generate:
@@ -86,14 +87,13 @@ jobs:
           git commit -m "Add daily admissions digest"
 
           for attempt in 1 2 3 4 5; do
-            echo "Push attempt ${attempt}: rebasing digest commit onto origin/${branch}."
-            git fetch origin "${branch}"
+            echo "Push attempt ${attempt}: pulling/rebasing digest commit onto origin/${branch}."
             git pull --rebase --autostash origin "${branch}"
             if git push origin "HEAD:${branch}"; then
               echo "Digest archive pushed to ${branch}."
               exit 0
             fi
-            echo "Push attempt ${attempt} failed; remote changed again. Retrying after a short delay."
+            echo "Push attempt ${attempt} failed; remote changed again. Retrying after a longer delay."
             sleep $((attempt * 10))
           done
 
