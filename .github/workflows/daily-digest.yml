@@ -1,0 +1,129 @@
+name: Daily Admissions Digest
+
+on:
+  schedule:
+    # GitHub cron uses UTC. Run at both possible UTC offsets and gate below so
+    # the digest is delivered at 7:00 AM America/New_York year-round.
+    - cron: "0 11 * * 1-5"
+    - cron: "0 12 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-admissions-digest-${{ github.ref }}
+  # Cancel stale/manual duplicate runs so only the newest digest run can reach the archive push.
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check 7 AM Eastern schedule gate
+        id: schedule_gate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run_digest=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          eastern_hour=$(TZ=America/New_York date +%H)
+          if [ "$eastern_hour" = "07" ]; then
+            echo "run_digest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_digest=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out repository
+        if: steps.schedule_gate.outputs.run_digest == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync workflow branch
+        if: steps.schedule_gate.outputs.run_digest == 'true'
+        run: |
+          git fetch origin "${GITHUB_REF_NAME}"
+          git checkout "${GITHUB_REF_NAME}"
+          git reset --hard "origin/${GITHUB_REF_NAME}"
+
+      - name: Set up Python
+        if: steps.schedule_gate.outputs.run_digest == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        if: steps.schedule_gate.outputs.run_digest == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Generate and email digest
+        if: steps.schedule_gate.outputs.run_digest == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: python -m adm_digest.main --send-email
+
+      - name: Commit digest archive and seen-article updates
+        if: steps.schedule_gate.outputs.run_digest == 'true'
+        run: |
+          set -euo pipefail
+          branch="${GITHUB_REF_NAME}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          changed_files="$(git status --porcelain -- digests data/seen_articles.json | awk '{print $2}')"
+          if [ -z "${changed_files}" ]; then
+            echo "No digest archive or seen-article updates to commit."
+            exit 0
+          fi
+
+          tmpdir="$(mktemp -d)"
+          cleanup() {
+            rm -rf "${tmpdir}"
+          }
+          trap cleanup EXIT
+
+          echo "Saving generated digest artifacts before syncing with origin/${branch}."
+          while IFS= read -r file; do
+            [ -n "${file}" ] || continue
+            mkdir -p "${tmpdir}/$(dirname "${file}")"
+            cp "${file}" "${tmpdir}/${file}"
+          done <<< "${changed_files}"
+
+          for attempt in 1 2 3 4 5; do
+            echo "Push attempt ${attempt}: resetting to origin/${branch} and reapplying generated artifacts."
+            git fetch origin "${branch}"
+            git reset --hard "origin/${branch}"
+
+            while IFS= read -r file; do
+              [ -n "${file}" ] || continue
+              mkdir -p "$(dirname "${file}")"
+              cp "${tmpdir}/${file}" "${file}"
+            done <<< "${changed_files}"
+
+            git add digests data/seen_articles.json
+            if git diff --cached --quiet; then
+              echo "Remote already contains these digest archive and seen-article updates."
+              exit 0
+            fi
+            git commit -m "Add daily admissions digest"
+
+            if git push origin "HEAD:${branch}"; then
+              echo "Digest archive pushed to ${branch}."
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed; remote changed again. Retrying after a longer delay."
+            sleep $((attempt * 10))
+          done
+
+          echo "Unable to push digest archive after 5 attempts."
+          exit 1
