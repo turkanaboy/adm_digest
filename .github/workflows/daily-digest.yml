@@ -39,6 +39,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Sync workflow branch
+        if: steps.schedule_gate.outputs.run_digest == 'true'
+        run: |
+          git fetch origin "${GITHUB_REF_NAME}"
+          git checkout "${GITHUB_REF_NAME}"
+          git reset --hard "origin/${GITHUB_REF_NAME}"
+
       - name: Set up Python
         if: steps.schedule_gate.outputs.run_digest == 'true'
         uses: actions/setup-python@v5
@@ -67,6 +74,8 @@ jobs:
       - name: Commit digest archive and seen-article updates
         if: steps.schedule_gate.outputs.run_digest == 'true'
         run: |
+          set -euo pipefail
+          branch="${GITHUB_REF_NAME}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add digests data/seen_articles.json
@@ -75,5 +84,18 @@ jobs:
             exit 0
           fi
           git commit -m "Add daily admissions digest"
-          git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+          for attempt in 1 2 3; do
+            echo "Push attempt ${attempt}: rebasing digest commit onto origin/${branch}."
+            git fetch origin "${branch}"
+            git pull --rebase --autostash origin "${branch}"
+            if git push origin "HEAD:${branch}"; then
+              echo "Digest archive pushed to ${branch}."
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed; remote changed again. Retrying after a short delay."
+            sleep $((attempt * 5))
+          done
+
+          echo "Unable to push digest archive after 3 attempts."
+          exit 1

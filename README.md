@@ -17,7 +17,7 @@ The GitHub Actions workflow runs Monday-Friday. Because GitHub cron schedules us
 
 The workflow also supports manual runs through `workflow_dispatch`.
 
-The workflow commits generated digest archives and duplicate-tracking updates back to the branch that ran the workflow. To avoid `fetch first` push failures when the remote branch receives new commits during a run, the checkout fetches full history, scheduled/manual runs are serialized with a workflow concurrency group, and the commit step rebases on the latest remote branch before pushing.
+The workflow commits generated digest archives and duplicate-tracking updates back to the branch that ran the workflow. To avoid `fetch first` push failures when the remote branch receives new commits during a run, the checkout fetches full history, scheduled/manual runs are serialized with a workflow concurrency group, the branch is reset to the latest remote state before generation, and the commit step rebases on the latest remote branch before pushing. If the remote branch changes again between the rebase and push, the workflow retries the fetch/rebase/push sequence up to three times before failing.
 
 ## What I need from you next
 
