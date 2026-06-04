@@ -7,24 +7,26 @@ from textwrap import shorten
 from adm_digest.models import Article
 
 
-def _article_payload(article: Article) -> dict[str, str | int | None]:
+def _article_payload(article: Article, context_char_limit: int) -> dict[str, str | int | None]:
     return {
         "title": article.title,
         "publication": article.source,
         "url": article.url,
         "published_at": article.published_at.isoformat() if article.published_at else None,
-        "summary_or_excerpt": shorten(article.summary or article.excerpt or "", width=1200, placeholder=" ..."),
+        "summary_or_excerpt": shorten(article.summary or article.excerpt or "", width=context_char_limit, placeholder=" ..."),
         "category": article.category,
         "relevance_score": article.relevance_score,
     }
 
 
-def build_digest_with_openai(*, articles: list[Article], settings: dict, digest_date: str) -> dict:
+def build_digest_with_openai(*, articles: list[Article], local_articles: list[Article], settings: dict, digest_date: str) -> dict:
     from openai import OpenAI
 
     client = OpenAI()
     model = settings.get("openai", {}).get("model", "gpt-4.1-mini")
-    payload = [_article_payload(article) for article in articles]
+    context_char_limit = int(settings.get("openai", {}).get("context_char_limit", 1200))
+    payload = [_article_payload(article, context_char_limit) for article in articles]
+    local_payload = [_article_payload(article, context_char_limit) for article in local_articles]
     prompt = f"""
 Create an internal weekday executive briefing for undergraduate admissions personnel.
 Institution context: {settings['digest']['institution_context']}.
@@ -35,7 +37,7 @@ Requirements:
 - message_of_the_day: strategic, admissions-focused, motivational, 2-4 sentences.
 - affirmation_of_the_day: powerful, uplifting, motivating, horoscope-esque but not mystical or overdone, for admissions counselors/readers/operations staff.
 - dad_joke_of_the_day: light, general audience, not necessarily admissions related.
-- binghamton_area_brief: 2-4 short bullets about Binghamton/SUNY/local-area items if present in inputs; otherwise include evergreen local recruitment-useful observations without inventing news.
+- binghamton_area_brief: 2-4 short bullets about positive Binghamton/SUNY/local-area items from the local inputs. Prioritize upbeat, recruitment-useful coverage such as community events, arts/culture, economic development, food, outdoors, student life, and regional momentum. Avoid crime, accidents, scandals, deaths, or negative coverage unless it is directly necessary for admissions awareness.
 - articles: up to {settings['digest']['max_articles']} items, preserving URLs, focused on undergraduate admissions for a four-year doctoral-granting public institution.
 - For each article include: title, publication, url, why_it_matters, summary_bullets, quote.
 - summary_bullets: 3-5 concise bullets.
@@ -43,8 +45,11 @@ Requirements:
 - Do not invent facts, quotations, article details, or claims not supported by supplied metadata/excerpts.
 - Keep the tone informative like an executive briefing.
 
-Article inputs:
+Admissions article inputs:
 {json.dumps(payload, indent=2)}
+
+Positive/local Binghamton-area candidate inputs:
+{json.dumps(local_payload, indent=2)}
 """
     schema = {
         "type": "object",
@@ -81,12 +86,14 @@ Article inputs:
     return json.loads(response.output_text)
 
 
-def build_digest_without_openai(*, articles: list[Article]) -> dict:
+def build_digest_without_openai(*, articles: list[Article], local_articles: list[Article] | None = None) -> dict:
     return {
         "message_of_the_day": "Use today's signals to sharpen focus: every policy shift, affordability headline, and enrollment trend is a reminder that clarity and care are competitive advantages.",
         "affirmation_of_the_day": "Your steady work turns uncertainty into direction for students and families. Today, your attention to detail, patience, and humanity matter more than you may ever hear back.",
         "dad_joke_of_the_day": "I only know 25 letters of the alphabet. I don't know y.",
-        "binghamton_area_brief": [],
+        "binghamton_area_brief": [
+            f"{article.source}: {article.title} — {article.url}" for article in (local_articles or [])[:4]
+        ],
         "articles": [
             {
                 "title": article.title,

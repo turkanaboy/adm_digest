@@ -94,6 +94,34 @@ def fetch_page_links(source: Source, limit: int = 20) -> list[Article]:
     return articles
 
 
+def extract_visible_article_text(html: str) -> str:
+    soup = BeautifulSoup(html, "html.parser")
+    for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
+        element.decompose()
+    paragraphs = [paragraph.get_text(" ", strip=True) for paragraph in soup.find_all("p")]
+    text = "\n\n".join(paragraph for paragraph in paragraphs if len(paragraph) >= 40)
+    return text.strip()
+
+
+def enrich_with_public_full_text(article: Article, max_chars: int = 12_000) -> Article:
+    """Add visible public article text when allowed by source access metadata.
+
+    This does not log in, bypass paywalls, or run for institutional subscription
+    sources. It only reads text visible from a normal public page request.
+    """
+    if article.raw.get("access") == "institutional_subscription":
+        return article
+    try:
+        response = requests.get(article.url, timeout=REQUEST_TIMEOUT_SECONDS, headers={"User-Agent": USER_AGENT})
+        response.raise_for_status()
+    except requests.RequestException:
+        return article
+    text = extract_visible_article_text(response.text)
+    if text:
+        article.excerpt = text[:max_chars]
+    return article
+
+
 def fetch_articles(sources: list[Source]) -> list[Article]:
     articles: list[Article] = []
     for source in sources:

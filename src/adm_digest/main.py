@@ -8,8 +8,9 @@ from zoneinfo import ZoneInfo
 from adm_digest.ai import build_digest_with_openai, build_digest_without_openai, should_use_openai
 from adm_digest.config import load_sources, load_yaml
 from adm_digest.emailer import send_email
-from adm_digest.fetch import fetch_articles
+from adm_digest.fetch import enrich_with_public_full_text, fetch_articles
 from adm_digest.render import render_markdown
+from adm_digest.local import is_positive_local_article, local_positivity_score
 from adm_digest.scoring import score_article
 from adm_digest.seen import load_seen, save_seen
 from adm_digest.slack import post_to_slack
@@ -35,6 +36,7 @@ def generate_digest(args: argparse.Namespace) -> Path:
 
     articles = fetch_articles(sources)
     filtered = []
+    local_candidates = []
     for article in articles:
         if article.key in seen:
             continue
@@ -43,14 +45,41 @@ def generate_digest(args: argparse.Namespace) -> Path:
         article.relevance_score = score_article(article)
         if article.relevance_score > 0:
             filtered.append(article)
+        if is_positive_local_article(article):
+            local_candidates.append(article)
 
-    filtered.sort(key=lambda item: (item.relevance_score, item.published_at or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
+    local_candidates.sort(
+        key=lambda item: (
+            local_positivity_score(item),
+            item.published_at or datetime.min.replace(tzinfo=timezone.utc),
+        ),
+        reverse=True,
+    )
+    local_selected = local_candidates[: int(digest_settings.get("binghamton_area_max_items", 4))]
+
+    filtered.sort(
+        key=lambda item: (
+            item.relevance_score,
+            item.published_at or datetime.min.replace(tzinfo=timezone.utc),
+        ),
+        reverse=True,
+    )
     selected = filtered[: int(digest_settings["max_articles"])]
 
+    if settings.get("openai", {}).get("article_context_mode") == "public_full_text":
+        max_chars = int(settings.get("openai", {}).get("public_full_text_max_chars", 12_000))
+        selected = [enrich_with_public_full_text(article, max_chars=max_chars) for article in selected]
+        local_selected = [enrich_with_public_full_text(article, max_chars=max_chars) for article in local_selected]
+
     if should_use_openai() and not args.no_openai:
-        content = build_digest_with_openai(articles=selected, settings=settings, digest_date=now.date().isoformat())
+        content = build_digest_with_openai(
+            articles=selected,
+            local_articles=local_selected,
+            settings=settings,
+            digest_date=now.date().isoformat(),
+        )
     else:
-        content = build_digest_without_openai(articles=selected)
+        content = build_digest_without_openai(articles=selected, local_articles=local_selected)
 
     payload = {
         "title": digest_settings["title"],

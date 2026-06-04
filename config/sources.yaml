@@ -68,3 +68,31 @@ sources:
     rss_url: null
     category: binghamton_area
     access: public
+
+  - name: Press & Sun-Bulletin / Pressconnects
+    url: https://www.pressconnects.com/news/local/
+    rss_url: null
+    category: binghamton_area
+    access: public
+    note: "Local Binghamton-area coverage; positive local filter is applied before the area brief."
+
+  - name: WBNG Local News
+    url: https://www.wbng.com/news/
+    rss_url: https://www.wbng.com/arc/outboundfeeds/rss/category/news/?outputType=xml
+    category: binghamton_area
+    access: public
+    note: "Local coverage; positive local filter is applied before the area brief."
+
+  - name: WSKG Local News
+    url: https://www.wskg.org/news
+    rss_url: https://www.wskg.org/news.rss
+    category: binghamton_area
+    access: public
+    note: "Regional public-media coverage; positive local filter is applied before the area brief."
+
+  - name: Broome County News
+    url: https://www.gobroomecounty.com/news
+    rss_url: null
+    category: binghamton_area
+    access: public
+    note: "County/community coverage; positive local filter is applied before the area brief."

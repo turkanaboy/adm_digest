@@ -7,6 +7,8 @@ digest:
   archive_dir: digests
   seen_articles_path: data/seen_articles.json
   include_weekends: false
+  binghamton_area_max_items: 4
+  binghamton_area_tone: positive_recruitment_useful
   disclaimer: >-
     AI-generated briefing for internal admissions awareness. Summaries may omit nuance;
     read the linked source for full context. Quotes are intentionally short excerpts.
@@ -25,3 +27,6 @@ openai:
   # Full article text raises token cost and can create copyright/subscription concerns.
   # Default mode sends metadata + public excerpts only. See README for guidance.
   article_context_mode: metadata_and_excerpts
+  context_char_limit: 1200
+  # Optional mode: public_full_text. This fetches only public visible text and skips subscription sources.
+  public_full_text_max_chars: 12000
