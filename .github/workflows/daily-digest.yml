@@ -122,7 +122,7 @@ jobs:
               exit 0
             fi
             echo "Push attempt ${attempt} failed; remote changed again. Retrying after a longer delay."
-            sleep $((attempt * 10))
+            sleep $((attempt * 15))
           done
 
           echo "Unable to push digest archive after 5 attempts."
