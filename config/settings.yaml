@@ -1,0 +1,32 @@
+digest:
+  title: Undergraduate Admissions Daily Digest
+  institution_context: Binghamton University, a four-year doctoral-granting SUNY institution
+  timezone: America/New_York
+  max_articles: 8
+  lookback_hours: 48
+  archive_dir: digests
+  seen_articles_path: data/seen_articles.json
+  include_weekends: false
+  binghamton_area_max_items: 4
+  binghamton_area_tone: positive_recruitment_useful
+  disclaimer: >-
+    AI-generated briefing for internal admissions awareness. Summaries may omit nuance;
+    read the linked source for full context. Quotes are intentionally short excerpts.
+
+email:
+  subject_prefix: "Admissions Digest"
+  from_name: "Admissions Digest Bot"
+
+slack:
+  enabled: false
+  # Slack incoming webhooks work on free Slack workspaces if an admin allows the app/webhook.
+  # Set SLACK_WEBHOOK_URL in GitHub Actions secrets and change enabled to true to post.
+
+openai:
+  model: gpt-4.1-mini
+  # Full article text raises token cost and can create copyright/subscription concerns.
+  # Default mode sends metadata + public excerpts only. See README for guidance.
+  article_context_mode: metadata_and_excerpts
+  context_char_limit: 1200
+  # Optional mode: public_full_text. This fetches only public visible text and skips subscription sources.
+  public_full_text_max_chars: 12000
