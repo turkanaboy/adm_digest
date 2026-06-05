@@ -62,7 +62,7 @@ def render_markdown(payload: dict) -> str:
         lines.append(f"**Link:** {article['url']}")
         lines.append("")
 
-    resources = payload.get("resources", []) or []
+    resources = (payload.get("resources", []) or [])[:1]
     if resources:
         lines.extend(["## Resources", ""])
         for resource in resources:
@@ -189,7 +189,7 @@ def render_html(payload: dict) -> str:
                 {_callout('Dad Joke of the Day', payload['dad_joke_of_the_day'], '#8a7220')}
                 {_section_heading('Top Undergraduate Admissions Articles')}
                 {article_cards}
-                {_render_resources_section(payload.get('resources', []) or [])}
+                {_render_resources_section((payload.get('resources', []) or [])[:1])}
                 {_render_local_section(local_items)}
                 <div style="margin:32px 0 0 0;padding:18px 20px;background:{SOFT_BG};border:1px solid {BORDER};border-radius:14px;">
                   <p style="margin:0;color:{MUTED};font-size:12px;line-height:1.6;">{escape(payload['disclaimer'])}</p>
@@ -268,7 +268,7 @@ def _render_resources_section(items: list) -> str:
     if not items:
         return ""
     bullet_items: list[str] = []
-    for resource in items:
+    for resource in items[:1]:
         title = escape(str(resource.get("title", "")).strip() or "Resource")
         publication = escape(str(resource.get("publication", "")).strip())
         why = escape(str(resource.get("why_it_matters", "")).strip())

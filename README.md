@@ -5,10 +5,11 @@ This repository generates a weekday admissions digest for Binghamton University 
 ## What the digest includes
 
 - Message of the Day: strategic, admissions-focused, and motivational.
-- Affirmation of the Day: powerful, uplifting, and written for admissions counselors, readers, and operations staff doing daily student-facing work.
+- Affirmation of the Day: brief, plainspoken personal encouragement; uplifting but not admissions-specific, flowery, or spiritual.
 - Dad Joke of the Day: intentionally light and not necessarily admissions-related.
 - Binghamton Area Brief: a small section for positive SUNY, Binghamton University, and Binghamton-area items that may help admissions staff speak about place and context.
-- Top Undergraduate Admissions Articles: up to 8 relevant articles with standard-length summaries, a short important quote when available, and source links.
+- Top Undergraduate Admissions Articles: up to the configured article count, using broader college/higher-ed articles as supplements when admissions-specific items run short.
+- Resources: at most one useful hub, guide, journal, index, or reference page. Resource pages are separated from articles, do not count toward the article count, and do not include quotes.
 - Disclaimer: each digest notes that summaries are AI-generated and that readers should consult the linked source for full context.
 
 ## Schedule
@@ -115,17 +116,17 @@ This protects the subscription, avoids brittle SSO automation, and reduces copyr
 
 ## Full text vs. metadata/excerpts
 
-The default recommendation is `metadata_and_excerpts`.
+The default mode is `public_full_text`: the digest tries to fetch visible public article text for selected items so summaries and short quotes have enough context, then falls back to RSS metadata/excerpts when the page is paywalled, subscription-only, inaccessible, or too thin to be useful.
 
-Using full article text can improve summary fidelity when the system has lawful access to the content, but it has tradeoffs:
+Using full public article text can improve summary fidelity when the system has lawful access to the content, but it has tradeoffs:
 
 - Cost: OpenAI API cost is driven largely by tokens. Full article text can be many times more expensive than titles, metadata, and excerpts, especially across multiple articles each weekday.
 - Copyright and subscription terms: sending full paywalled article text to a third-party model may require institutional approval.
-- Accuracy: metadata-only summaries can miss nuance. The safer middle ground is to summarize from titles, public summaries, RSS descriptions, and short excerpts, while clearly linking to the source and including a disclaimer.
+- Accuracy: metadata-only summaries can miss nuance. The current middle ground is to use visible public text only when available, keep subscription content metadata-only, clearly link to the source, and include a disclaimer.
 
-For this digest, metadata and excerpts are usually enough to identify relevance, provide an executive awareness summary, and direct staff to read the full source where needed. If later approved, selected public full-text sources can be enabled source-by-source.
+For this digest, public full text is used only for visible, non-subscription pages and only for the selected items. Institutional-subscription sources remain metadata/link-only unless the institution explicitly approves authenticated automated access.
 
-A practical cost estimate using `gpt-4.1-mini` pricing is still small for this use case, but the difference is real. If the digest sends roughly 8 article records with metadata/excerpts, the request might be around 8,000-15,000 input tokens plus 2,000-4,000 output tokens. If it sends 8 full articles, it could easily be 40,000-80,000 input tokens plus similar output. At `gpt-4.1-mini` rates, that is often the difference between fractions of a cent and a few cents per digest, but full text also raises access and copyright questions. The recommended path is to start with metadata/excerpts, review quality for a week, then selectively enable full text for public sources only if the summaries feel too shallow.
+A practical cost estimate using `gpt-4.1-mini` pricing is still small for this use case, but the difference is real. If the digest sends roughly 8 article records with metadata/excerpts, the request might be around 8,000-15,000 input tokens plus 2,000-4,000 output tokens. If it sends 8 full public articles, it could easily be 40,000-80,000 input tokens plus similar output. At `gpt-4.1-mini` rates, that is often the difference between fractions of a cent and a few cents per digest, but full text also raises access and copyright questions.
 
 ## Local usage
 
@@ -150,7 +151,7 @@ OPENAI_API_KEY=... SMTP_HOST=... SMTP_USERNAME=... SMTP_PASSWORD=... EMAIL_FROM=
 ## Configuration
 
 - Edit `config/sources.yaml` to add or remove publications.
-- Edit `config/settings.yaml` to change tone settings, maximum article count, archive paths, Slack settings, or model.
+- Edit `config/settings.yaml` to change tone settings, maximum article count, one-resource cap, archive paths, Slack settings, or model.
 - Archived digests are written to `digests/YYYY-MM-DD.md`.
 - Duplicate tracking is stored in `data/seen_articles.json`.
 
