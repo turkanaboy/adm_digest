@@ -199,6 +199,13 @@ def generate_digest(args: argparse.Namespace) -> Path:
         resource_candidates,
         max_resources=int(digest_settings.get("resource_max_items", 1)),
     )
+    if len(selected) < max_articles:
+        selected = select_admissions_articles(
+            supplement_candidates,
+            max_articles=max_articles,
+            per_source_cap=per_source_cap,
+            already_selected=selected,
+        )
 
     if settings.get("openai", {}).get("article_context_mode") == "public_full_text":
         max_chars = int(settings.get("openai", {}).get("public_full_text_max_chars", 12_000))

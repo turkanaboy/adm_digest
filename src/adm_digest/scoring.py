@@ -210,6 +210,21 @@ def is_college_related_supplement(article: Article, minimum_score: int = 2) -> b
     return score_article(article) >= minimum_score
 
 
+def is_college_related_supplement(article: Article, minimum_score: int = 4) -> bool:
+    """True when an item can supplement the Top list after admissions items run short.
+
+    These are still national higher-ed / education-policy items, but they may be
+    broader than undergraduate admissions. This gives the digest useful college
+    context when frequent runs and the seen-article file exhaust the narrow
+    admissions queue.
+    """
+    if article.category in LOCAL_CATEGORIES:
+        return False
+    if has_negative_framing(article):
+        return False
+    return score_article(article) >= minimum_score
+
+
 def is_relevant(article: Article, minimum_score: int = 5) -> bool:
     """Legacy helper retained for tests/callers; prefer is_admissions_focused."""
     return score_article(article) >= minimum_score
