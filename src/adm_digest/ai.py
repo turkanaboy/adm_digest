@@ -158,7 +158,6 @@ AFFIRMATION OF THE DAY
 DAD JOKE OF THE DAY
 - Light, clean, general audience.
 - Vary joke structure day to day (puns, one-liners, anti-jokes, wordplay, knock-knock, observational).
-- Try to find more unique ones if possible.
 - Avoid the most over-told classics ("Why don't skeletons fight…", "I'm reading a book about anti-gravity…", "I only know 25 letters of the alphabet…", "...outstanding in his field..").
 
 ROTATION RULE
