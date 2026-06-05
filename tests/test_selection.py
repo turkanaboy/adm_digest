@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 
-from adm_digest.main import select_admissions_articles
+from adm_digest.main import select_admissions_articles, select_resource_items
 from adm_digest.models import Article
-from adm_digest.scoring import is_college_related_supplement
+from adm_digest.scoring import is_admissions_focused, is_college_related_supplement, is_resource_candidate
 
 
 def article(title: str, source: str, tier: str = "primary", score: int = 1) -> Article:
@@ -44,3 +44,26 @@ def test_college_related_supplement_accepts_broader_higher_ed_context() -> None:
     )
 
     assert is_college_related_supplement(candidate)
+
+
+def test_resource_candidate_is_not_counted_as_article() -> None:
+    resource = Article(
+        title="College & University Journal",
+        url="https://www.aacrao.org/research-publications/quarterly-journals/college-university-journal",
+        source="AACRAO",
+        category="enrollment_operations",
+        tier="primary",
+    )
+
+    assert is_resource_candidate(resource)
+    assert not is_admissions_focused(resource)
+    assert not is_college_related_supplement(resource)
+
+
+def test_resource_selection_is_limited_to_one() -> None:
+    resources = [
+        article("College & University Journal", "AACRAO", score=4),
+        article("Newsletter and Blogs", "AACRAO", score=3),
+    ]
+
+    assert select_resource_items(resources, max_resources=1) == resources[:1]

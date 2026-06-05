@@ -5,10 +5,11 @@ This repository generates a weekday admissions digest for Binghamton University 
 ## What the digest includes
 
 - Message of the Day: strategic, admissions-focused, and motivational.
-- Affirmation of the Day: brief, plainspoken encouragement for admissions counselors, readers, and operations staff doing daily student-facing work.
+- Affirmation of the Day: brief, plainspoken personal encouragement; uplifting but not admissions-specific, flowery, or spiritual.
 - Dad Joke of the Day: intentionally light and not necessarily admissions-related.
 - Binghamton Area Brief: a small section for positive SUNY, Binghamton University, and Binghamton-area items that may help admissions staff speak about place and context.
-- Top Undergraduate Admissions Articles: up to 8 relevant articles with standard-length summaries, a short important quote when available, and source links.
+- Top Undergraduate Admissions Articles: up to the configured article count, using broader college/higher-ed articles as supplements when admissions-specific items run short.
+- Resources: at most one useful hub, guide, journal, index, or reference page. Resource pages are separated from articles, do not count toward the article count, and do not include quotes.
 - Disclaimer: each digest notes that summaries are AI-generated and that readers should consult the linked source for full context.
 
 ## Schedule
@@ -150,7 +151,7 @@ OPENAI_API_KEY=... SMTP_HOST=... SMTP_USERNAME=... SMTP_PASSWORD=... EMAIL_FROM=
 ## Configuration
 
 - Edit `config/sources.yaml` to add or remove publications.
-- Edit `config/settings.yaml` to change tone settings, maximum article count, archive paths, Slack settings, or model.
+- Edit `config/settings.yaml` to change tone settings, maximum article count, one-resource cap, archive paths, Slack settings, or model.
 - Archived digests are written to `digests/YYYY-MM-DD.md`.
 - Duplicate tracking is stored in `data/seen_articles.json`.
 

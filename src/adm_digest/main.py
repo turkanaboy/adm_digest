@@ -11,7 +11,12 @@ from adm_digest.emailer import send_email
 from adm_digest.fetch import enrich_with_public_full_text, fetch_articles
 from adm_digest.local import is_positive_local_article, local_positivity_score
 from adm_digest.render import render_html, render_markdown
-from adm_digest.scoring import is_admissions_focused, is_college_related_supplement, score_article
+from adm_digest.scoring import (
+    is_admissions_focused,
+    is_college_related_supplement,
+    is_resource_candidate,
+    score_article,
+)
 from adm_digest.seen import load_seen, save_seen
 from adm_digest.slack import post_to_slack
 
@@ -107,6 +112,18 @@ def select_admissions_articles(
     return selected
 
 
+def select_resource_items(candidates: list, max_resources: int = 1) -> list:
+    """Pick a very small set of resource/hub pages for the optional Resources section."""
+
+    def _sort_key(item):
+        return (
+            item.relevance_score,
+            item.published_at or datetime.min.replace(tzinfo=timezone.utc),
+        )
+
+    return sorted(candidates, key=_sort_key, reverse=True)[:max_resources]
+
+
 def generate_digest(args: argparse.Namespace) -> Path:
     settings = load_yaml(args.settings)
     sources = load_sources(args.sources)
@@ -122,6 +139,8 @@ def generate_digest(args: argparse.Namespace) -> Path:
     articles = fetch_articles(sources)
     filtered = []
     supplement_candidates = []
+    broad_primary_candidates = []
+    resource_candidates = []
     local_candidates = []
     for article in articles:
         if article.key in seen:
@@ -129,6 +148,9 @@ def generate_digest(args: argparse.Namespace) -> Path:
         if not recent_enough(article.published_at, int(digest_settings["lookback_hours"])):
             continue
         article.relevance_score = score_article(article)
+        if is_resource_candidate(article):
+            resource_candidates.append(article)
+            continue
         # Top Undergraduate Admissions Articles are strictly admissions-focused
         # from major higher-ed publications. Local Binghamton-area sources and
         # negative-news framing are routed away from this section so the Top
@@ -137,6 +159,8 @@ def generate_digest(args: argparse.Namespace) -> Path:
             filtered.append(article)
         elif is_college_related_supplement(article):
             supplement_candidates.append(article)
+        elif article.tier != "secondary" and is_college_related_supplement(article, minimum_score=0):
+            broad_primary_candidates.append(article)
         if is_positive_local_article(article):
             local_candidates.append(article)
 
@@ -163,6 +187,25 @@ def generate_digest(args: argparse.Namespace) -> Path:
             per_source_cap=per_source_cap,
             already_selected=selected,
         )
+    if len(selected) < max_articles:
+        selected = select_admissions_articles(
+            broad_primary_candidates,
+            max_articles=max_articles,
+            per_source_cap=per_source_cap,
+            already_selected=selected,
+        )
+
+    resource_selected = select_resource_items(
+        resource_candidates,
+        max_resources=int(digest_settings.get("resource_max_items", 1)),
+    )
+    if len(selected) < max_articles:
+        selected = select_admissions_articles(
+            supplement_candidates,
+            max_articles=max_articles,
+            per_source_cap=per_source_cap,
+            already_selected=selected,
+        )
 
     if settings.get("openai", {}).get("article_context_mode") == "public_full_text":
         max_chars = int(settings.get("openai", {}).get("public_full_text_max_chars", 12_000))
@@ -174,6 +217,7 @@ def generate_digest(args: argparse.Namespace) -> Path:
         content = build_digest_with_openai(
             articles=selected,
             local_articles=local_selected,
+            resource_articles=resource_selected,
             settings=settings,
             digest_date=now.date().isoformat(),
             archive_dir=archive_dir,
@@ -181,7 +225,11 @@ def generate_digest(args: argparse.Namespace) -> Path:
             recruitment_phase_detail=phase_detail,
         )
     else:
-        content = build_digest_without_openai(articles=selected, local_articles=local_selected)
+        content = build_digest_without_openai(
+            articles=selected,
+            local_articles=local_selected,
+            resource_articles=resource_selected,
+        )
 
     payload = {
         "title": digest_settings["title"],
@@ -197,7 +245,7 @@ def generate_digest(args: argparse.Namespace) -> Path:
     output_path.write_text(markdown, encoding="utf-8")
 
     if not args.dry_run:
-        seen.update(article.key for article in selected)
+        seen.update(article.key for article in selected + resource_selected)
         save_seen(seen_path, seen)
 
     if args.send_email:

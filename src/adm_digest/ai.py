@@ -29,6 +29,63 @@ def _article_payload(article: Article, context_char_limit: int) -> dict[str, str
     }
 
 
+def _fallback_article_from_payload(item: dict) -> dict:
+    context = str(item.get("summary_or_excerpt") or "").strip()
+    return {
+        "title": str(item.get("title") or "Untitled article"),
+        "publication": str(item.get("publication") or "Unknown publication"),
+        "url": str(item.get("url") or ""),
+        "why_it_matters": "Included because it matched admissions, enrollment, or broader higher-education relevance signals.",
+        "summary_bullets": [context or "Review the linked source for details."],
+        "quote": "",
+    }
+
+
+def _fallback_resource_from_payload(item: dict) -> dict:
+    return {
+        "title": str(item.get("title") or "Resource"),
+        "publication": str(item.get("publication") or ""),
+        "url": str(item.get("url") or ""),
+        "why_it_matters": "Useful reference or resource page for admissions awareness.",
+    }
+
+
+def _normalize_digest_output(result: dict, article_payload: list[dict], resource_payload: list[dict]) -> dict:
+    """Keep resources out of articles and make the article count deterministic."""
+    resource_urls = {str(item.get("url") or "") for item in resource_payload}
+    normalized_articles = []
+    seen_article_urls: set[str] = set()
+    for item in result.get("articles", []) or []:
+        url = str(item.get("url") or "")
+        if not url or url in resource_urls or url in seen_article_urls:
+            continue
+        normalized_articles.append(item)
+        seen_article_urls.add(url)
+
+    article_cap = len(article_payload)
+    for item in article_payload:
+        url = str(item.get("url") or "")
+        if len(normalized_articles) >= article_cap:
+            break
+        if not url or url in seen_article_urls:
+            continue
+        normalized_articles.append(_fallback_article_from_payload(item))
+        seen_article_urls.add(url)
+    result["articles"] = normalized_articles[:article_cap]
+
+    normalized_resources = []
+    allowed_resource_urls = {str(item.get("url") or "") for item in resource_payload[:1]}
+    for item in result.get("resources", []) or []:
+        url = str(item.get("url") or "")
+        if url in allowed_resource_urls:
+            normalized_resources.append(item)
+            break
+    if not normalized_resources and resource_payload:
+        normalized_resources.append(_fallback_resource_from_payload(resource_payload[0]))
+    result["resources"] = normalized_resources[:1]
+    return result
+
+
 def _recent_rotation_history(archive_dir: Path, limit: int = 7) -> list[dict[str, str]]:
     """Pull the last `limit` past digests' MOTD/affirmation/joke from archive
     markdown so the LLM can avoid repeating them word-for-word."""
@@ -59,6 +116,7 @@ def build_digest_with_openai(
     *,
     articles: list[Article],
     local_articles: list[Article],
+    resource_articles: list[Article] | None = None,
     settings: dict,
     digest_date: str,
     archive_dir: Path | None = None,
@@ -72,6 +130,7 @@ def build_digest_with_openai(
     context_char_limit = int(settings.get("openai", {}).get("context_char_limit", 1200))
     payload = [_article_payload(article, context_char_limit) for article in articles]
     local_payload = [_article_payload(article, context_char_limit) for article in local_articles]
+    resource_payload = [_article_payload(article, context_char_limit) for article in (resource_articles or [])]
     history = _recent_rotation_history(archive_dir) if archive_dir is not None else []
     brief_cap = settings["digest"].get("binghamton_area_max_items", 4)
     article_cap = settings["digest"].get("max_articles", 5)
@@ -91,10 +150,10 @@ MESSAGE OF THE DAY
 - No flowery language, no metaphors, no platitudes. Operational and direct, like a quick note from a supervisor.
 
 AFFIRMATION OF THE DAY
-- Maximum 2 short sentences. Hard cap 30 words total.
-- Plain language. Encouraging but grounded. Write like a real colleague, not a wellness poster.
-- Avoid buzzwords and abstract word salad such as "resilience," "purpose," "impact," "journey," "meaningful work," or "showing up."
-- Example tone: "Your follow-through matters. The applicants you talked to today felt it."
+- Short personal motivator, not admissions-related. Maximum 2 short sentences. Hard cap 24 words total.
+- Plain language. Uplifting but grounded. Write like a real person, not a wellness poster.
+- Avoid spiritual, mystical, flowery, or abstract word salad. Do not use words like "resilience," "purpose," "impact," "journey," "meaningful work," or "showing up."
+- Example tone: "Take one thing at a time today. You have more in you than you think."
 
 DAD JOKE OF THE DAY
 - Light, clean, general audience, not necessarily admissions related.
@@ -105,22 +164,25 @@ ROTATION RULE
 - Today's MOTD, affirmation, and joke MUST be substantively different from the recent history below. Do not repeat the same joke, the same phrasing, the same opening words, or the same affirmation themes.
 
 ARTICLES (Top Admissions list)
-- Up to {article_cap} items. Prefer fewer high-quality items over padding the list.
+- Include exactly {article_cap} items when at least {article_cap} usable article inputs are supplied; otherwise include every usable article input.
+- Do not reduce the article count simply because an item is supplemental or from a secondary source.
 - Source diversity: do NOT include more than 2 items from the same publication.
-- Draw ONLY from the Admissions article inputs below.
+- Draw ONLY from the Admissions article inputs below. Do NOT use Resource candidate inputs as articles.
 - Acceptable topics: undergraduate admissions, enrollment, financial aid, recruitment, application policy, FAFSA, demographic shifts, test policy, college access, AND admissions-adjacent higher-ed stories that could impact admissions or recruitment (federal policy affecting colleges, major rulings, rankings, student loan policy, enrollment trends). If narrow admissions items are exhausted, broader college/higher-ed context supplied in the inputs may supplement the list.
 - Source preference: items from dedicated higher-ed publications (tier=primary) come first. Items from mainstream publications (tier=secondary) should fill remaining slots when primary/admissions-specific supply is exhausted and must still clearly tie to admissions, colleges, or higher-ed.
 - Do NOT include negative news (lawsuits, crime, abuse, scandals).
 - Do NOT include Binghamton-area or campus-local news in this list — those belong to binghamton_area_brief.
-- Do NOT include items whose title/URL looks like a navigation page, hub, index, or category listing (e.g. "Events Calendar", "Arts & Culture", "Staff Directory", "About Us"). Skip those entirely. If a candidate item has no real article body — only a category/hub URL — move it to the resources array instead of articles.
+- Do NOT include items whose title/URL looks like a navigation page, hub, index, resource, journal landing page, or category listing (e.g. "Events Calendar", "Arts & Culture", "Staff Directory", "College & University Journal", "About Us") as articles. Resource-like items belong only in resources and do not count toward article count.
 - For each article include: title, publication, url, why_it_matters, summary_bullets, quote.
 - summary_bullets: 3-5 concise bullets grounded ONLY in the supplied metadata/excerpt. Do not invent facts.
 - quote: a short verbatim quote from the supplied summary_or_excerpt if one exists. When public_full_text_available is true, use the fuller public text to find a more useful quote. If only brief metadata is available and no quotable line appears there, return an empty string "" — do NOT write a placeholder like "No short source quote available".
 
 RESOURCES (optional)
-- Use this for high-signal HUB / GUIDE / REFERENCE pages that aren't single news articles but are still useful to admissions staff (e.g. a NACAC resource page, an AACRAO newsletter index, an FSA electronic-announcements hub).
-- Each item: {{title, publication, url, why_it_matters}}. Keep why_it_matters to one sentence.
-- Return an empty array if there are none. Never invent resource entries.
+- Use ONLY the Resource candidate inputs below. Do not invent resource entries.
+- Maximum 1 resource. Return an empty array if no useful Resource candidate input is supplied.
+- Resource pages are hubs, guides, journals, indexes, or reference pages, not single news articles.
+- Each resource item has only: {{title, publication, url, why_it_matters}}. Keep why_it_matters to one sentence.
+- Resources do not count toward the article count and must never have summary_bullets or quote/nutrient quote fields.
 
 BINGHAMTON AREA BRIEF
 - Up to {brief_cap} items. Each item is an object with two fields: "text" (one short sentence summarizing the local item in a positive, recruitment-useful tone) and "url" (the source URL of that local item, copied verbatim from the candidate inputs).
@@ -134,6 +196,9 @@ Recent rotation history (DO NOT REPEAT THESE):
 
 Admissions article inputs:
 {json.dumps(payload, indent=2)}
+
+Resource candidate inputs (not articles; optional Resources section only):
+{json.dumps(resource_payload, indent=2)}
 
 Binghamton-area candidate inputs (local news only, not university news):
 {json.dumps(local_payload, indent=2)}
@@ -202,13 +267,18 @@ Binghamton-area candidate inputs (local news only, not university news):
         input=prompt,
         text={"format": {"type": "json_schema", "name": "admissions_digest", "schema": schema, "strict": True}},
     )
-    return json.loads(response.output_text)
+    return _normalize_digest_output(json.loads(response.output_text), payload, resource_payload)
 
 
-def build_digest_without_openai(*, articles: list[Article], local_articles: list[Article] | None = None) -> dict:
+def build_digest_without_openai(
+    *,
+    articles: list[Article],
+    local_articles: list[Article] | None = None,
+    resource_articles: list[Article] | None = None,
+) -> dict:
     return {
         "message_of_the_day": "Today's focus: follow up with applicants who reached out this week and log anything notable from yesterday's outreach.",
-        "affirmation_of_the_day": "Your follow-through matters. The applicants you talked to today felt it.",
+        "affirmation_of_the_day": "Take one thing at a time today. You have more in you than you think.",
         "dad_joke_of_the_day": "I told my suitcase there'd be no vacation this year. Now I'm dealing with emotional baggage.",
         "binghamton_area_brief": [
             {"text": f"{article.source}: {article.title}", "url": article.url}
@@ -225,7 +295,15 @@ def build_digest_without_openai(*, articles: list[Article], local_articles: list
             }
             for article in articles
         ],
-        "resources": [],
+        "resources": [
+            {
+                "title": article.title,
+                "publication": article.source,
+                "url": article.url,
+                "why_it_matters": "Useful reference or resource page for admissions awareness.",
+            }
+            for article in (resource_articles or [])[:1]
+        ],
     }
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from urllib.parse import urlparse
 
 from adm_digest.models import Article
 
@@ -108,6 +109,25 @@ NEGATIVE_NEWS_TERMS = {
     "victim",
 }
 
+# Resource/hub signals. These pages can be useful to admissions staff, but they
+# are not news articles and should not consume Top Articles slots or receive
+# article-only fields such as a quote.
+RESOURCE_URL_FRAGMENTS = (
+    "/research-publications/quarterly-journals",
+    "/quarterly-journals/",
+    "/resources/newsletters-blogs",
+    "/newsletters-blogs",
+    "/news--publications",
+    "/news-publications",
+)
+RESOURCE_TITLE_PATTERNS = (
+    re.compile(r"\bcollege\s*&\s*university journal\b", re.IGNORECASE),
+    re.compile(r"\bquarterly journals?\b", re.IGNORECASE),
+    re.compile(r"\bnewsletters?\s*(?:&|and)\s*blogs?\b", re.IGNORECASE),
+    re.compile(r"^\s*(?:resources?|resource center|resource library)\b", re.IGNORECASE),
+    re.compile(r"^\s*(?:guide|guides)\b", re.IGNORECASE),
+)
+
 
 def score_article(article: Article) -> int:
     text = " ".join(
@@ -137,6 +157,24 @@ def has_negative_framing(article: Article) -> bool:
     return any(term in text for term in NEGATIVE_NEWS_TERMS)
 
 
+def is_resource_candidate(article: Article) -> bool:
+    """True when a fetched item is a resource/hub, not a news article.
+
+    Resources are eligible for the optional Resources section only. They should
+    not count toward the article cap and should not receive article fields such
+    as summary bullets or quotes.
+    """
+    if article.category in LOCAL_CATEGORIES:
+        return False
+    if has_negative_framing(article):
+        return False
+    parsed_path = urlparse(article.url).path.rstrip("/").lower()
+    if any(fragment in parsed_path for fragment in RESOURCE_URL_FRAGMENTS):
+        return True
+    title = article.title.strip()
+    return any(pattern.search(title) for pattern in RESOURCE_TITLE_PATTERNS)
+
+
 def is_admissions_focused(article: Article, minimum_score: int = 7) -> bool:
     """True when an article belongs in the Top Undergraduate Admissions list.
 
@@ -147,6 +185,25 @@ def is_admissions_focused(article: Article, minimum_score: int = 7) -> bool:
     - It must not read as negative news (crime, lawsuit, scandal, etc.).
     """
     if article.category in LOCAL_CATEGORIES:
+        return False
+    if is_resource_candidate(article):
+        return False
+    if has_negative_framing(article):
+        return False
+    return score_article(article) >= minimum_score
+
+
+def is_college_related_supplement(article: Article, minimum_score: int = 2) -> bool:
+    """True when an item can supplement the Top list after admissions items run short.
+
+    These are still national higher-ed / education-policy items, but they may be
+    broader than undergraduate admissions. This gives the digest useful college
+    context when frequent runs and the seen-article file exhaust the narrow
+    admissions queue.
+    """
+    if article.category in LOCAL_CATEGORIES:
+        return False
+    if is_resource_candidate(article):
         return False
     if has_negative_framing(article):
         return False
