@@ -11,7 +11,7 @@ from adm_digest.emailer import send_email
 from adm_digest.fetch import enrich_with_public_full_text, fetch_articles
 from adm_digest.local import is_positive_local_article, local_positivity_score
 from adm_digest.render import render_html, render_markdown
-from adm_digest.scoring import is_admissions_focused, score_article
+from adm_digest.scoring import is_admissions_focused, is_college_related_supplement, score_article
 from adm_digest.seen import load_seen, save_seen
 from adm_digest.slack import post_to_slack
 
@@ -52,6 +52,7 @@ def select_admissions_articles(
     candidates: list,
     max_articles: int,
     per_source_cap: int,
+    already_selected: list | None = None,
 ) -> list:
     """Pick the Top articles with diversity guarantees.
 
@@ -70,10 +71,14 @@ def select_admissions_articles(
 
     primary = sorted([c for c in candidates if c.tier != "secondary"], key=_sort_key, reverse=True)
     secondary = sorted([c for c in candidates if c.tier == "secondary"], key=_sort_key, reverse=True)
-    selected: list = []
+    selected: list = list(already_selected or [])
     used_by_source: dict[str, int] = {}
+    for item in selected:
+        used_by_source[item.source] = used_by_source.get(item.source, 0) + 1
 
     def _try_add(item) -> bool:
+        if item in selected:
+            return False
         if len(selected) >= max_articles:
             return False
         if used_by_source.get(item.source, 0) >= per_source_cap:
@@ -116,6 +121,7 @@ def generate_digest(args: argparse.Namespace) -> Path:
 
     articles = fetch_articles(sources)
     filtered = []
+    supplement_candidates = []
     local_candidates = []
     for article in articles:
         if article.key in seen:
@@ -129,6 +135,8 @@ def generate_digest(args: argparse.Namespace) -> Path:
         # list never fills up with crime/lawsuit/local-misc items.
         if is_admissions_focused(article):
             filtered.append(article)
+        elif is_college_related_supplement(article):
+            supplement_candidates.append(article)
         if is_positive_local_article(article):
             local_candidates.append(article)
 
@@ -141,11 +149,20 @@ def generate_digest(args: argparse.Namespace) -> Path:
     )
     local_selected = local_candidates[: int(digest_settings.get("binghamton_area_max_items", 4))]
 
+    max_articles = int(digest_settings["max_articles"])
+    per_source_cap = int(digest_settings.get("per_source_cap", 2))
     selected = select_admissions_articles(
         filtered,
-        max_articles=int(digest_settings["max_articles"]),
-        per_source_cap=int(digest_settings.get("per_source_cap", 2)),
+        max_articles=max_articles,
+        per_source_cap=per_source_cap,
     )
+    if len(selected) < max_articles:
+        selected = select_admissions_articles(
+            supplement_candidates,
+            max_articles=max_articles,
+            per_source_cap=per_source_cap,
+            already_selected=selected,
+        )
 
     if settings.get("openai", {}).get("article_context_mode") == "public_full_text":
         max_chars = int(settings.get("openai", {}).get("public_full_text_max_chars", 12_000))
