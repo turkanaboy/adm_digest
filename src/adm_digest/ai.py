@@ -8,13 +8,21 @@ from textwrap import shorten
 from adm_digest.models import Article
 
 
-def _article_payload(article: Article, context_char_limit: int) -> dict[str, str | int | None]:
+def _article_payload(article: Article, context_char_limit: int) -> dict[str, str | int | None | bool]:
+    context_source = article.raw.get("context_source", "metadata_or_excerpt")
+    context_text = (
+        article.excerpt
+        if context_source == "public_full_text" and article.excerpt
+        else article.summary or article.excerpt or ""
+    )
     return {
         "title": article.title,
         "publication": article.source,
         "url": article.url,
         "published_at": article.published_at.isoformat() if article.published_at else None,
-        "summary_or_excerpt": shorten(article.summary or article.excerpt or "", width=context_char_limit, placeholder=" ..."),
+        "summary_or_excerpt": shorten(context_text, width=context_char_limit, placeholder=" ..."),
+        "context_source": context_source,
+        "public_full_text_available": context_source == "public_full_text",
         "category": article.category,
         "tier": article.tier,
         "relevance_score": article.relevance_score,
@@ -84,7 +92,8 @@ MESSAGE OF THE DAY
 
 AFFIRMATION OF THE DAY
 - Maximum 2 short sentences. Hard cap 30 words total.
-- Plain language. Encouraging but grounded. Not flowery, not horoscope-style, not mystical, no metaphors.
+- Plain language. Encouraging but grounded. Write like a real colleague, not a wellness poster.
+- Avoid buzzwords and abstract word salad such as "resilience," "purpose," "impact," "journey," "meaningful work," or "showing up."
 - Example tone: "Your follow-through matters. The applicants you talked to today felt it."
 
 DAD JOKE OF THE DAY
@@ -99,14 +108,14 @@ ARTICLES (Top Admissions list)
 - Up to {article_cap} items. Prefer fewer high-quality items over padding the list.
 - Source diversity: do NOT include more than 2 items from the same publication.
 - Draw ONLY from the Admissions article inputs below.
-- Acceptable topics: undergraduate admissions, enrollment, financial aid, recruitment, application policy, FAFSA, demographic shifts, test policy, college access, AND admissions-adjacent higher-ed stories that could impact admissions or recruitment (federal policy affecting colleges, major rulings, rankings, student loan policy, enrollment trends).
-- Source preference: items from dedicated higher-ed publications (tier=primary) come first. Items from mainstream publications (tier=secondary) should only fill remaining slots and must still clearly tie to admissions or higher-ed.
+- Acceptable topics: undergraduate admissions, enrollment, financial aid, recruitment, application policy, FAFSA, demographic shifts, test policy, college access, AND admissions-adjacent higher-ed stories that could impact admissions or recruitment (federal policy affecting colleges, major rulings, rankings, student loan policy, enrollment trends). If narrow admissions items are exhausted, broader college/higher-ed context supplied in the inputs may supplement the list.
+- Source preference: items from dedicated higher-ed publications (tier=primary) come first. Items from mainstream publications (tier=secondary) should fill remaining slots when primary/admissions-specific supply is exhausted and must still clearly tie to admissions, colleges, or higher-ed.
 - Do NOT include negative news (lawsuits, crime, abuse, scandals).
 - Do NOT include Binghamton-area or campus-local news in this list — those belong to binghamton_area_brief.
 - Do NOT include items whose title/URL looks like a navigation page, hub, index, or category listing (e.g. "Events Calendar", "Arts & Culture", "Staff Directory", "About Us"). Skip those entirely. If a candidate item has no real article body — only a category/hub URL — move it to the resources array instead of articles.
 - For each article include: title, publication, url, why_it_matters, summary_bullets, quote.
 - summary_bullets: 3-5 concise bullets grounded ONLY in the supplied metadata/excerpt. Do not invent facts.
-- quote: a short verbatim quote from the supplied excerpt if one exists. If no quotable line is in the excerpt, return an empty string "" — do NOT write a placeholder like "No short source quote available".
+- quote: a short verbatim quote from the supplied summary_or_excerpt if one exists. When public_full_text_available is true, use the fuller public text to find a more useful quote. If only brief metadata is available and no quotable line appears there, return an empty string "" — do NOT write a placeholder like "No short source quote available".
 
 RESOURCES (optional)
 - Use this for high-signal HUB / GUIDE / REFERENCE pages that aren't single news articles but are still useful to admissions staff (e.g. a NACAC resource page, an AACRAO newsletter index, an FSA electronic-announcements hub).
