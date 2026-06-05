@@ -43,13 +43,6 @@ sources:
     tier: primary
     access: public
 
-  - name: AACRAO
-    url: https://www.aacrao.org/resources/newsletters-blogs
-    rss_url: null
-    category: enrollment_operations
-    tier: primary
-    access: public
-
   - name: Common App News
     url: https://www.commonapp.org/news
     rss_url: null
