@@ -250,12 +250,40 @@ def extract_visible_article_text(html: str) -> str:
     return text.strip()
 
 
+PAYWALL_TEXT_MARKERS = (
+    "subscribe to continue",
+    "subscription required",
+    "sign in to continue",
+    "create an account to continue",
+    "you have reached your limit",
+    "already a subscriber",
+)
+
+
+def _usable_public_article_text(text: str, existing_context: str = "") -> bool:
+    """Return True when fetched page text is likely better than RSS metadata.
+
+    The digest should use public full text when it is available, but fall back to
+    metadata/excerpts for paywalled, blocked, or very thin pages. This heuristic
+    avoids replacing a useful RSS summary with a login/subscription stub.
+    """
+    normalized = " ".join(text.lower().split())
+    if len(text) < max(500, len(existing_context)):
+        return False
+    if any(marker in normalized for marker in PAYWALL_TEXT_MARKERS) and len(text) < 1_500:
+        return False
+    return True
+
+
 def enrich_with_public_full_text(article: Article, max_chars: int = 12_000) -> Article:
     """Add visible public article text when allowed by source access metadata.
 
     This does not log in, bypass paywalls, or run for institutional subscription
-    sources. It only reads text visible from a normal public page request.
+    sources. It only reads text visible from a normal public page request. When
+    the page is inaccessible, paywalled, or too thin, the original metadata/RSS
+    summary remains in place.
     """
+    article.raw.setdefault("context_source", "metadata_or_excerpt")
     if article.raw.get("access") == "institutional_subscription":
         return article
     try:
@@ -264,8 +292,10 @@ def enrich_with_public_full_text(article: Article, max_chars: int = 12_000) -> A
     except requests.RequestException:
         return article
     text = extract_visible_article_text(response.text)
-    if text:
+    existing_context = article.summary or article.excerpt or ""
+    if _usable_public_article_text(text, existing_context):
         article.excerpt = text[:max_chars]
+        article.raw["context_source"] = "public_full_text"
     return article
 
 
