@@ -156,9 +156,10 @@ AFFIRMATION OF THE DAY
 - Example tone: "Take one thing at a time today. You have more in you than you think."
 
 DAD JOKE OF THE DAY
-- Light, clean, general audience, not necessarily admissions related.
+- Light, clean, general audience.
 - Vary joke structure day to day (puns, one-liners, anti-jokes, wordplay, knock-knock, observational).
-- Avoid the most over-told classics ("Why don't skeletons fight…", "I'm reading a book about anti-gravity…", "I only know 25 letters of the alphabet…").
+- Try to find more unique ones if possible.
+- Avoid the most over-told classics ("Why don't skeletons fight…", "I'm reading a book about anti-gravity…", "I only know 25 letters of the alphabet…", "...outstanding in his field..").
 
 ROTATION RULE
 - Today's MOTD, affirmation, and joke MUST be substantively different from the recent history below. Do not repeat the same joke, the same phrasing, the same opening words, or the same affirmation themes.
