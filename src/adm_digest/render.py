@@ -56,16 +56,31 @@ def render_markdown(payload: dict) -> str:
         )
         for bullet in article.get("summary_bullets", []):
             lines.append(f"- {bullet}")
-        lines.extend(
-            [
-                "",
-                f"**Most nutrient quote:** {article['quote']}",
-                f"**Link:** {article['url']}",
-                "",
-            ]
-        )
+        lines.append("")
+        if _has_real_quote(article.get("quote")):
+            lines.append(f"**Quote:** {article['quote'].strip()}")
+        lines.append(f"**Link:** {article['url']}")
+        lines.append("")
 
-    lines.extend(["## Binghamton Area Brief", "", "_Positive local Binghamton-area news for recruitment context._", ""])
+    resources = payload.get("resources", []) or []
+    if resources:
+        lines.extend(["## Resources", ""])
+        for resource in resources:
+            title = str(resource.get("title", "")).strip() or "Resource"
+            publication = str(resource.get("publication", "")).strip()
+            why = str(resource.get("why_it_matters", "")).strip()
+            url = str(resource.get("url", "")).strip()
+            head = f"- **{title}**"
+            if publication:
+                head += f" — {publication}"
+            lines.append(head)
+            if why:
+                lines.append(f"  - {why}")
+            if url:
+                lines.append(f"  - Link: {url}")
+        lines.append("")
+
+    lines.extend(["## Binghamton Area Brief", ""])
     area_items = payload.get("binghamton_area_brief", [])
     if area_items:
         for item in area_items:
@@ -79,6 +94,19 @@ def render_markdown(payload: dict) -> str:
     lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+# Treat empty strings and the legacy fallback sentence as "no quote".
+_NO_QUOTE_SENTINEL = "no short source quote available"
+
+
+def _has_real_quote(quote) -> bool:
+    if not quote:
+        return False
+    text = str(quote).strip()
+    if not text:
+        return False
+    return _NO_QUOTE_SENTINEL not in text.lower()
 
 
 def render_html(payload: dict) -> str:
@@ -159,8 +187,9 @@ def render_html(payload: dict) -> str:
                 {_callout('Message of the Day', payload['message_of_the_day'], BINGHAMTON_DEEP_GREEN)}
                 {_callout('Affirmation of the Day', payload['affirmation_of_the_day'], '#2f6f55')}
                 {_callout('Dad Joke of the Day', payload['dad_joke_of_the_day'], '#8a7220')}
-                {_section_heading('Top Undergraduate Admissions Articles', 'Curated from major higher-education publications')}
+                {_section_heading('Top Undergraduate Admissions Articles')}
                 {article_cards}
+                {_render_resources_section(payload.get('resources', []) or [])}
                 {_render_local_section(local_items)}
                 <div style="margin:32px 0 0 0;padding:18px 20px;background:{SOFT_BG};border:1px solid {BORDER};border-radius:14px;">
                   <p style="margin:0;color:{MUTED};font-size:12px;line-height:1.6;">{escape(payload['disclaimer'])}</p>
@@ -223,17 +252,50 @@ def _render_local_section(items: list) -> str:
             "</li>"
         )
     bullets = "".join(bullet_items)
-    body = (
-        f"<p style='margin:0 0 12px 0;color:{MUTED};font-size:13px;line-height:1.55;'>"
-        "Positive local Binghamton-area happenings &mdash; useful color for "
-        "recruitment conversations about place and context."
-        "</p>"
-        f"<ul style='margin:0;padding:0 0 0 20px;'>{bullets}</ul>"
-    )
+    body = f"<ul style='margin:0;padding:0 0 0 20px;'>{bullets}</ul>"
     return (
-        _section_heading('Binghamton Area Brief', 'Local Binghamton-area news &middot; positive only')
+        _section_heading('Binghamton Area Brief')
         + _card(None, body)
     )
+
+
+def _render_resources_section(items: list) -> str:
+    """Render a small Resources section between articles and the local brief.
+
+    Only emits markup when there is at least one resource. Resources are
+    hub / guide / reference entries that aren't single news stories.
+    """
+    if not items:
+        return ""
+    bullet_items: list[str] = []
+    for resource in items:
+        title = escape(str(resource.get("title", "")).strip() or "Resource")
+        publication = escape(str(resource.get("publication", "")).strip())
+        why = escape(str(resource.get("why_it_matters", "")).strip())
+        url = str(resource.get("url", "")).strip()
+        publication_html = (
+            f"<span style='color:{MUTED};font-weight:500;'> &middot; {publication}</span>"
+            if publication
+            else ""
+        )
+        title_html = (
+            f'<a href="{escape(url, quote=True)}" style="color:{BINGHAMTON_DEEP_GREEN};text-decoration:none;font-weight:700;">{title}</a>'
+            if url
+            else f"<strong style='color:{INK};'>{title}</strong>"
+        )
+        why_html = (
+            f"<p style='margin:4px 0 0 0;color:{MUTED};font-size:13px;line-height:1.55;'>{why}</p>"
+            if why
+            else ""
+        )
+        bullet_items.append(
+            f"<li style='margin:0 0 12px 0;color:{INK};font-size:14px;line-height:1.5;'>"
+            f"{title_html}{publication_html}{why_html}"
+            "</li>"
+        )
+    bullets = "".join(bullet_items)
+    body = f"<ul style='margin:0;padding:0 0 0 20px;'>{bullets}</ul>"
+    return _section_heading('Resources') + _card(None, body)
 
 
 def _brief_text_and_url(item) -> tuple[str, str]:
@@ -257,6 +319,13 @@ def _render_article_card(index: int, article: dict, image_url: str | None) -> st
         for bullet in article.get("summary_bullets", [])
     )
     host = _host_label(article.get("url", ""))
+    quote_html = ""
+    if _has_real_quote(article.get("quote")):
+        quote_html = (
+            f'<blockquote style="margin:0 0 18px 0;padding:14px 16px;background:{SOFT_BG};border-left:4px solid {BINGHAMTON_LIGHT_GREEN};border-radius:8px;color:{INK};font-size:14px;line-height:1.6;">'
+            f'<strong style="color:{BINGHAMTON_DEEP_GREEN};">Quote:</strong> {escape(str(article["quote"]).strip())}'
+            f'</blockquote>'
+        )
     content = (
         f'{image}'
         f'<p style="margin:0 0 8px 0;color:{BINGHAMTON_DEEP_GREEN};font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;">'
@@ -267,9 +336,7 @@ def _render_article_card(index: int, article: dict, image_url: str | None) -> st
         f'<strong style="color:{INK};">Why it matters:</strong> {escape(article.get("why_it_matters", "Review the linked source for details."))}'
         f'</p>'
         f'<ul style="margin:0 0 18px 0;padding:0 0 0 20px;">{bullets}</ul>'
-        f'<blockquote style="margin:0 0 18px 0;padding:14px 16px;background:{SOFT_BG};border-left:4px solid {BINGHAMTON_LIGHT_GREEN};border-radius:8px;color:{INK};font-size:14px;line-height:1.6;">'
-        f'<strong style="color:{BINGHAMTON_DEEP_GREEN};">Most nutrient quote:</strong> {escape(article.get("quote", "No short source quote available from the supplied excerpt."))}'
-        f'</blockquote>'
+        f'{quote_html}'
         f'<a href="{escape(article.get("url", ""), quote=True)}" '
         f'style="display:inline-block;background:{BINGHAMTON_DEEP_GREEN};color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 20px;border-radius:999px;letter-spacing:0.2px;">'
         f'Read at {escape(host)}'

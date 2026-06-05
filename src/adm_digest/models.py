@@ -12,6 +12,11 @@ class Source:
     rss_url: str | None = None
     category: str = "general"
     access: str = "public"
+    # tier controls priority in the Top Admissions Articles list:
+    #   "primary"   = dedicated higher-ed / admissions publications. Always preferred.
+    #   "secondary" = mainstream / general-audience publications. Only used when
+    #                 primary tier hasn't filled the slot count.
+    tier: str = "primary"
     note: str | None = None
 
 
@@ -24,6 +29,7 @@ class Article:
     summary: str | None = None
     excerpt: str | None = None
     category: str = "general"
+    tier: str = "primary"
     relevance_score: int = 0
     image_url: str | None = None
     raw: dict[str, Any] = field(default_factory=dict)

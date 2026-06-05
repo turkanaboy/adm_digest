@@ -1,78 +1,104 @@
 # Sources are intentionally configurable so Admissions can tune coverage over time.
-# rss_url is preferred. If a source has subscription-only access, keep it in link-only
-# mode unless the institution confirms automated access is permitted.
+# rss_url is preferred. If a source has subscription-only access, keep it in
+# link-only mode unless the institution confirms automated access is permitted.
+#
+# tier: "primary"   = dedicated higher-ed / admissions publications. Always preferred.
+#       "secondary" = mainstream / general-audience publications. Only used to
+#                     fill remaining slots when primary tier is exhausted.
 sources:
+  # ----- Primary: higher-ed / admissions trade press -----
   - name: Inside Higher Ed - Admissions
     url: https://www.insidehighered.com/news/admissions
     rss_url: https://www.insidehighered.com/rss.xml
     category: national_higher_ed
+    tier: primary
     access: public
 
   - name: Higher Ed Dive
     url: https://www.highereddive.com/
     rss_url: https://www.highereddive.com/feeds/news/
     category: national_higher_ed
+    tier: primary
     access: public
 
   - name: The Chronicle of Higher Education
     url: https://www.chronicle.com/
     rss_url: null
     category: national_higher_ed
+    tier: primary
     access: institutional_subscription
     note: "Use link/metadata only unless automated authenticated access is explicitly approved."
+
+  - name: The Hechinger Report
+    url: https://hechingerreport.org/
+    rss_url: https://hechingerreport.org/feed/
+    category: national_higher_ed
+    tier: primary
+    access: public
 
   - name: NACAC
     url: https://www.nacacnet.org/news--publications/
     rss_url: null
     category: admissions_association
+    tier: primary
     access: public
 
   - name: AACRAO
     url: https://www.aacrao.org/resources/newsletters-blogs
     rss_url: null
     category: enrollment_operations
+    tier: primary
     access: public
 
   - name: Common App News
     url: https://www.commonapp.org/news
     rss_url: null
     category: application_platform
+    tier: primary
     access: public
 
   - name: Federal Student Aid - Electronic Announcements
     url: https://fsapartners.ed.gov/knowledge-center/library/electronic-announcements
     rss_url: null
     category: financial_aid_policy
+    tier: primary
     access: public
 
   - name: U.S. Department of Education News
     url: https://www.ed.gov/news/press-releases
     rss_url: https://www.ed.gov/rss.xml
     category: federal_policy
+    tier: primary
     access: public
 
+  # ----- Primary (campus/system): for the Binghamton Area Brief routing only -----
   - name: SUNY News
     url: https://www.suny.edu/suny-news/
     rss_url: null
     category: suny
+    tier: primary
     access: public
 
   - name: Binghamton University News
     url: https://www.binghamton.edu/news/
     rss_url: https://www.binghamton.edu/news/rss.xml
     category: binghamton
+    tier: primary
     access: public
 
+  # ----- Primary: Binghamton local-area news (used in the Area Brief) -----
   - name: Visit Binghamton News
     url: https://visitbinghamton.org/
     rss_url: null
     category: binghamton_area
+    tier: primary
     access: public
 
   - name: Press & Sun-Bulletin / Pressconnects
     url: https://www.pressconnects.com/news/local/
     rss_url: null
     category: binghamton_area
+    tier: primary
     access: public
     note: "Local Binghamton-area coverage; positive local filter is applied before the area brief."
 
@@ -80,6 +106,7 @@ sources:
     url: https://www.wbng.com/news/
     rss_url: https://www.wbng.com/arc/outboundfeeds/rss/category/news/?outputType=xml
     category: binghamton_area
+    tier: primary
     access: public
     note: "Local coverage; positive local filter is applied before the area brief."
 
@@ -87,6 +114,7 @@ sources:
     url: https://www.wskg.org/news
     rss_url: https://www.wskg.org/news.rss
     category: binghamton_area
+    tier: primary
     access: public
     note: "Regional public-media coverage; positive local filter is applied before the area brief."
 
@@ -94,5 +122,45 @@ sources:
     url: https://www.gobroomecounty.com/news
     rss_url: null
     category: binghamton_area
+    tier: primary
     access: public
     note: "County/community coverage; positive local filter is applied before the area brief."
+
+  # ----- Secondary: widely-circulated mainstream press (education-focused feeds) -----
+  # Only fills remaining slots after primary higher-ed sources are exhausted. These
+  # feeds cover broader topics; the admissions-relevance scorer keeps only items
+  # whose title/summary clearly touches admissions, enrollment, or higher-ed policy.
+  - name: The New York Times - Education
+    url: https://www.nytimes.com/section/education
+    rss_url: https://rss.nytimes.com/services/xml/rss/nyt/Education.xml
+    category: national_general
+    tier: secondary
+    access: public
+
+  - name: NPR - Education
+    url: https://www.npr.org/sections/education/
+    rss_url: https://feeds.npr.org/1013/rss.xml
+    category: national_general
+    tier: secondary
+    access: public
+
+  - name: The Atlantic - Education
+    url: https://www.theatlantic.com/education/
+    rss_url: https://www.theatlantic.com/feed/channel/education/
+    category: national_general
+    tier: secondary
+    access: public
+
+  - name: Forbes - Education
+    url: https://www.forbes.com/education/
+    rss_url: https://www.forbes.com/education/feed/
+    category: national_general
+    tier: secondary
+    access: public
+
+  - name: Politico - Education
+    url: https://www.politico.com/news/education
+    rss_url: https://rss.politico.com/education.xml
+    category: national_general
+    tier: secondary
+    access: public

@@ -12,6 +12,7 @@ from adm_digest.models import Article
 LOCAL_CATEGORIES = {"suny", "binghamton", "binghamton_area"}
 
 ADMISSIONS_KEYWORDS: dict[str, int] = {
+    # Core admissions / enrollment terms
     "undergraduate admissions": 10,
     "admissions": 7,
     "enrollment": 7,
@@ -27,6 +28,7 @@ ADMISSIONS_KEYWORDS: dict[str, int] = {
     "early decision": 8,
     "early action": 8,
     "test optional": 8,
+    "test-optional": 8,
     "sat": 4,
     "act": 4,
     "common app": 9,
@@ -42,6 +44,29 @@ ADMISSIONS_KEYWORDS: dict[str, int] = {
     "student search": 8,
     "demographic cliff": 9,
     "college access": 7,
+    # Admissions-adjacent: higher-ed policy / context that can affect recruitment
+    "higher education": 4,
+    "higher ed": 4,
+    "college": 2,
+    "university": 2,
+    "undergraduate": 4,
+    "enrollment cliff": 8,
+    "demographic": 3,
+    "first-generation": 4,
+    "first generation": 4,
+    "international students": 4,
+    "student loan": 4,
+    "student debt": 4,
+    "title ix": 3,
+    "doe": 2,
+    "department of education": 4,
+    "supreme court": 3,
+    "affirmative action": 6,
+    "race-conscious": 6,
+    "race conscious": 6,
+    "dei": 3,
+    "rankings": 4,
+    "us news": 4,
 }
 
 EXCLUDE_PATTERNS = [

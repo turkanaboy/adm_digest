@@ -30,6 +30,78 @@ def recent_enough(published_at: datetime | None, lookback_hours: int) -> bool:
     return published_at >= datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
 
 
+# Binghamton-University admissions recruitment cycle, used to give the AI a
+# concrete operational context for the Message of the Day.
+RECRUITMENT_PHASES = {
+    8: ("Recruitment", "Aug-Nov: active outreach, fall travel, building the funnel for the upcoming cycle."),
+    9: ("Recruitment", "Aug-Nov: active outreach, fall travel, building the funnel for the upcoming cycle."),
+    10: ("Recruitment", "Aug-Nov: active outreach, fall travel, building the funnel for the upcoming cycle."),
+    11: ("Reading", "Nov-Feb: application review, decisions, and communicating with applicants."),
+    12: ("Reading", "Nov-Feb: application review, decisions, and communicating with applicants."),
+    1: ("Reading", "Nov-Feb: application review, decisions, and communicating with applicants."),
+    2: ("Reading", "Nov-Feb: application review, decisions, and communicating with applicants."),
+    3: ("Yield", "Mar-May: converting admits, hosting yield events, financial-aid conversations."),
+    4: ("Yield", "Mar-May: converting admits, hosting yield events, financial-aid conversations."),
+    5: ("Yield", "Mar-May: converting admits, hosting yield events, financial-aid conversations."),
+    6: ("Anti-melt", "May-Aug: confirming deposits, holding the class, anti-melt outreach, summer onboarding."),
+    7: ("Anti-melt", "May-Aug: confirming deposits, holding the class, anti-melt outreach, summer onboarding."),
+}
+
+
+def select_admissions_articles(
+    candidates: list,
+    max_articles: int,
+    per_source_cap: int,
+) -> list:
+    """Pick the Top articles with diversity guarantees.
+
+    Selection rules:
+      1. Prefer primary-tier (dedicated higher-ed) sources first.
+      2. Cap the number of items from any single publication to `per_source_cap`
+         so one outlet can't dominate the digest.
+      3. Within each tier, sort by relevance score then publication date.
+      4. Fall back to secondary-tier sources only after primary is exhausted.
+    """
+    def _sort_key(item):
+        return (
+            item.relevance_score,
+            item.published_at or datetime.min.replace(tzinfo=timezone.utc),
+        )
+
+    primary = sorted([c for c in candidates if c.tier != "secondary"], key=_sort_key, reverse=True)
+    secondary = sorted([c for c in candidates if c.tier == "secondary"], key=_sort_key, reverse=True)
+    selected: list = []
+    used_by_source: dict[str, int] = {}
+
+    def _try_add(item) -> bool:
+        if len(selected) >= max_articles:
+            return False
+        if used_by_source.get(item.source, 0) >= per_source_cap:
+            return False
+        selected.append(item)
+        used_by_source[item.source] = used_by_source.get(item.source, 0) + 1
+        return True
+
+    for item in primary:
+        _try_add(item)
+        if len(selected) >= max_articles:
+            return selected
+    for item in secondary:
+        _try_add(item)
+        if len(selected) >= max_articles:
+            return selected
+    # If per-source caps left us short, relax them and refill from primary then secondary.
+    if len(selected) < max_articles:
+        for pool in (primary, secondary):
+            for item in pool:
+                if item in selected:
+                    continue
+                if len(selected) >= max_articles:
+                    return selected
+                selected.append(item)
+    return selected
+
+
 def generate_digest(args: argparse.Namespace) -> Path:
     settings = load_yaml(args.settings)
     sources = load_sources(args.sources)
@@ -69,20 +141,18 @@ def generate_digest(args: argparse.Namespace) -> Path:
     )
     local_selected = local_candidates[: int(digest_settings.get("binghamton_area_max_items", 4))]
 
-    filtered.sort(
-        key=lambda item: (
-            item.relevance_score,
-            item.published_at or datetime.min.replace(tzinfo=timezone.utc),
-        ),
-        reverse=True,
+    selected = select_admissions_articles(
+        filtered,
+        max_articles=int(digest_settings["max_articles"]),
+        per_source_cap=int(digest_settings.get("per_source_cap", 2)),
     )
-    selected = filtered[: int(digest_settings["max_articles"])]
 
     if settings.get("openai", {}).get("article_context_mode") == "public_full_text":
         max_chars = int(settings.get("openai", {}).get("public_full_text_max_chars", 12_000))
         selected = [enrich_with_public_full_text(article, max_chars=max_chars) for article in selected]
         local_selected = [enrich_with_public_full_text(article, max_chars=max_chars) for article in local_selected]
 
+    phase_name, phase_detail = RECRUITMENT_PHASES.get(now.month, ("General", ""))
     if should_use_openai() and not args.no_openai:
         content = build_digest_with_openai(
             articles=selected,
@@ -90,6 +160,8 @@ def generate_digest(args: argparse.Namespace) -> Path:
             settings=settings,
             digest_date=now.date().isoformat(),
             archive_dir=archive_dir,
+            recruitment_phase=phase_name,
+            recruitment_phase_detail=phase_detail,
         )
     else:
         content = build_digest_without_openai(articles=selected, local_articles=local_selected)

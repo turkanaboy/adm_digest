@@ -71,6 +71,7 @@ def fetch_rss(source: Source) -> list[Article]:
                 summary=summary or None,
                 excerpt=summary[:600] if summary else None,
                 category=source.category,
+                tier=source.tier,
                 image_url=_entry_image_url(entry),
                 raw={"access": source.access},
             )
@@ -231,6 +232,7 @@ def fetch_page_links(source: Source, limit: int = 20) -> list[Article]:
                 url=href,
                 source=source.name,
                 category=source.category,
+                tier=source.tier,
                 raw={"access": source.access, "fallback": True},
             )
         )

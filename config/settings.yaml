@@ -2,12 +2,13 @@ digest:
   title: Undergraduate Admissions Daily Digest
   institution_context: Binghamton University, a four-year doctoral-granting SUNY institution
   timezone: America/New_York
-  max_articles: 8
+  max_articles: 5
+  per_source_cap: 2
   lookback_hours: 48
   archive_dir: digests
   seen_articles_path: data/seen_articles.json
   include_weekends: false
-  binghamton_area_max_items: 2
+  binghamton_area_max_items: 4
   binghamton_area_tone: positive_recruitment_useful
   disclaimer: >-
     AI-generated briefing for internal admissions awareness. Summaries may omit nuance;

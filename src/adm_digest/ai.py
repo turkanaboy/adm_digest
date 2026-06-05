@@ -16,6 +16,7 @@ def _article_payload(article: Article, context_char_limit: int) -> dict[str, str
         "published_at": article.published_at.isoformat() if article.published_at else None,
         "summary_or_excerpt": shorten(article.summary or article.excerpt or "", width=context_char_limit, placeholder=" ..."),
         "category": article.category,
+        "tier": article.tier,
         "relevance_score": article.relevance_score,
     }
 
@@ -40,9 +41,7 @@ def _recent_rotation_history(archive_dir: Path, limit: int = 7) -> list[dict[str
         ):
             if header in text:
                 after = text.split(header, 1)[1].lstrip()
-                # Take everything until the next top-level "## " header.
                 section = after.split("\n## ", 1)[0].strip()
-                # Keep only the first paragraph for brevity.
                 entry[key] = section.split("\n\n", 1)[0].strip()
         history.append(entry)
     return history
@@ -55,6 +54,8 @@ def build_digest_with_openai(
     settings: dict,
     digest_date: str,
     archive_dir: Path | None = None,
+    recruitment_phase: str = "General",
+    recruitment_phase_detail: str = "",
 ) -> dict:
     from openai import OpenAI
 
@@ -64,25 +65,60 @@ def build_digest_with_openai(
     payload = [_article_payload(article, context_char_limit) for article in articles]
     local_payload = [_article_payload(article, context_char_limit) for article in local_articles]
     history = _recent_rotation_history(archive_dir) if archive_dir is not None else []
-    brief_cap = settings["digest"].get("binghamton_area_max_items", 2)
+    brief_cap = settings["digest"].get("binghamton_area_max_items", 4)
+    article_cap = settings["digest"].get("max_articles", 5)
+
     prompt = f"""
-Create an internal weekday executive briefing for undergraduate admissions personnel.
+Create an internal weekday executive briefing for undergraduate admissions personnel at Binghamton University.
 Institution context: {settings['digest']['institution_context']}.
 Date: {digest_date}.
+Current recruitment cycle phase: {recruitment_phase}. {recruitment_phase_detail}
 
-Requirements:
-- Include exactly these JSON keys: message_of_the_day, affirmation_of_the_day, dad_joke_of_the_day, binghamton_area_brief, articles.
-- message_of_the_day: strategic, admissions-focused, motivational, 2-4 sentences.
-- affirmation_of_the_day: powerful, uplifting, motivating, horoscope-esque but not mystical or overdone, for admissions counselors/readers/operations staff.
-- dad_joke_of_the_day: light, clean, general audience, not necessarily admissions related. Vary the joke STRUCTURE day to day (puns, one-liners, anti-jokes, wordplay, knock-knock, observational). Avoid the most over-told classics ("Why don't skeletons fight…", "I'm reading a book about anti-gravity…", "I only know 25 letters of the alphabet…").
-- ROTATION RULE: today's message_of_the_day, affirmation_of_the_day, and dad_joke_of_the_day MUST be substantively different from the recent history below — do not repeat the same joke, the same phrasing, the same opening words, the same metaphors, or the same affirmation themes. Vary tone, vocabulary, and angle so readers feel fresh content each weekday.
-- binghamton_area_brief: up to {brief_cap} items. Each item is an OBJECT with two fields: "text" (1 short sentence summarizing the local item in a positive recruitment-useful tone) and "url" (the source URL of that local item, taken verbatim from the candidate inputs). Pull ONLY from the Binghamton-AREA candidate inputs below. Focus on the BINGHAMTON AREA itself (Broome County, downtown, regional economic development, businesses opening, community events, arts, food, outdoors, things to do) — NOT on Binghamton University or SUNY system news. Strictly exclude crime, lawsuits, accidents, scandals, abuse, deaths, fires, investigations, or any other negative framing. If no positive local items are supplied, return an empty array.
-- articles: up to {settings['digest']['max_articles']} items, preserving URLs, drawn ONLY from the Admissions article inputs below. Every item MUST be focused on undergraduate admissions, enrollment, financial aid, recruitment, application policy, FAFSA, demographic shifts, test policy, or related higher-education-wide topics from major higher education publications (Inside Higher Ed, Higher Ed Dive, Chronicle, NACAC, AACRAO, Common App, Federal Student Aid, U.S. Dept of Education). Do NOT place any Binghamton-area, SUNY-campus-local, or general local news in this list — those belong only in binghamton_area_brief. Do NOT include negative news (lawsuits, crime, abuse, scandals) in this list. Do NOT include items whose title or summary looks like navigation/section labels (e.g. "Events Calendar", "Arts & Culture", "Staff Directory", "About Us") — skip those entirely instead of inventing summaries.
+Top-level JSON keys (exact set): message_of_the_day, affirmation_of_the_day, dad_joke_of_the_day, binghamton_area_brief, articles, resources.
+
+MESSAGE OF THE DAY
+- 1-2 short sentences. Maximum 45 words.
+- This is a tactical, context-driven note tied to where we are in the recruitment cycle phase named above.
+- Reference the phase concretely (e.g. for Recruitment: focus on outreach, travel, funnel; for Reading: review pace, decision communication, applicant clarity; for Yield: converting admits, yield events, financial aid follow-up; for Anti-melt: deposit confirmation, holding the class, summer onboarding).
+- No flowery language, no metaphors, no platitudes. Operational and direct, like a quick note from a supervisor.
+
+AFFIRMATION OF THE DAY
+- Maximum 2 short sentences. Hard cap 30 words total.
+- Plain language. Encouraging but grounded. Not flowery, not horoscope-style, not mystical, no metaphors.
+- Example tone: "Your follow-through matters. The applicants you talked to today felt it."
+
+DAD JOKE OF THE DAY
+- Light, clean, general audience, not necessarily admissions related.
+- Vary joke structure day to day (puns, one-liners, anti-jokes, wordplay, knock-knock, observational).
+- Avoid the most over-told classics ("Why don't skeletons fight…", "I'm reading a book about anti-gravity…", "I only know 25 letters of the alphabet…").
+
+ROTATION RULE
+- Today's MOTD, affirmation, and joke MUST be substantively different from the recent history below. Do not repeat the same joke, the same phrasing, the same opening words, or the same affirmation themes.
+
+ARTICLES (Top Admissions list)
+- Up to {article_cap} items. Prefer fewer high-quality items over padding the list.
+- Source diversity: do NOT include more than 2 items from the same publication.
+- Draw ONLY from the Admissions article inputs below.
+- Acceptable topics: undergraduate admissions, enrollment, financial aid, recruitment, application policy, FAFSA, demographic shifts, test policy, college access, AND admissions-adjacent higher-ed stories that could impact admissions or recruitment (federal policy affecting colleges, major rulings, rankings, student loan policy, enrollment trends).
+- Source preference: items from dedicated higher-ed publications (tier=primary) come first. Items from mainstream publications (tier=secondary) should only fill remaining slots and must still clearly tie to admissions or higher-ed.
+- Do NOT include negative news (lawsuits, crime, abuse, scandals).
+- Do NOT include Binghamton-area or campus-local news in this list — those belong to binghamton_area_brief.
+- Do NOT include items whose title/URL looks like a navigation page, hub, index, or category listing (e.g. "Events Calendar", "Arts & Culture", "Staff Directory", "About Us"). Skip those entirely. If a candidate item has no real article body — only a category/hub URL — move it to the resources array instead of articles.
 - For each article include: title, publication, url, why_it_matters, summary_bullets, quote.
-- summary_bullets: 3-5 concise bullets grounded ONLY in the supplied metadata/excerpt; do not invent facts.
-- quote: one short important quote or excerpt if available from supplied metadata/excerpt; if no quote is available, write "No short source quote available from the supplied excerpt."
-- Do not invent facts, quotations, article details, or claims not supported by supplied metadata/excerpts.
-- Keep the tone informative like an executive briefing.
+- summary_bullets: 3-5 concise bullets grounded ONLY in the supplied metadata/excerpt. Do not invent facts.
+- quote: a short verbatim quote from the supplied excerpt if one exists. If no quotable line is in the excerpt, return an empty string "" — do NOT write a placeholder like "No short source quote available".
+
+RESOURCES (optional)
+- Use this for high-signal HUB / GUIDE / REFERENCE pages that aren't single news articles but are still useful to admissions staff (e.g. a NACAC resource page, an AACRAO newsletter index, an FSA electronic-announcements hub).
+- Each item: {{title, publication, url, why_it_matters}}. Keep why_it_matters to one sentence.
+- Return an empty array if there are none. Never invent resource entries.
+
+BINGHAMTON AREA BRIEF
+- Up to {brief_cap} items. Each item is an object with two fields: "text" (one short sentence summarizing the local item in a positive, recruitment-useful tone) and "url" (the source URL of that local item, copied verbatim from the candidate inputs).
+- Pull ONLY from the Binghamton-AREA candidate inputs below.
+- Focus on the BINGHAMTON AREA itself — Broome County, downtown, regional economic development, businesses opening, community events, arts, food, outdoors, things to do. NOT Binghamton University news, NOT SUNY system news.
+- Strictly exclude crime, lawsuits, accidents, scandals, abuse, deaths, fires, investigations, or any other negative framing.
+- Return an empty array if no positive local items are supplied.
 
 Recent rotation history (DO NOT REPEAT THESE):
 {json.dumps(history, indent=2)}
@@ -128,8 +164,29 @@ Binghamton-area candidate inputs (local news only, not university news):
                     "required": ["title", "publication", "url", "why_it_matters", "summary_bullets", "quote"],
                 },
             },
+            "resources": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "title": {"type": "string"},
+                        "publication": {"type": "string"},
+                        "url": {"type": "string"},
+                        "why_it_matters": {"type": "string"},
+                    },
+                    "required": ["title", "publication", "url", "why_it_matters"],
+                },
+            },
         },
-        "required": ["message_of_the_day", "affirmation_of_the_day", "dad_joke_of_the_day", "binghamton_area_brief", "articles"],
+        "required": [
+            "message_of_the_day",
+            "affirmation_of_the_day",
+            "dad_joke_of_the_day",
+            "binghamton_area_brief",
+            "articles",
+            "resources",
+        ],
     }
     response = client.responses.create(
         model=model,
@@ -141,24 +198,25 @@ Binghamton-area candidate inputs (local news only, not university news):
 
 def build_digest_without_openai(*, articles: list[Article], local_articles: list[Article] | None = None) -> dict:
     return {
-        "message_of_the_day": "Use today's signals to sharpen focus: every policy shift, affordability headline, and enrollment trend is a reminder that clarity and care are competitive advantages.",
-        "affirmation_of_the_day": "Your steady work turns uncertainty into direction for students and families. Today, your attention to detail, patience, and humanity matter more than you may ever hear back.",
+        "message_of_the_day": "Today's focus: follow up with applicants who reached out this week and log anything notable from yesterday's outreach.",
+        "affirmation_of_the_day": "Your follow-through matters. The applicants you talked to today felt it.",
         "dad_joke_of_the_day": "I told my suitcase there'd be no vacation this year. Now I'm dealing with emotional baggage.",
         "binghamton_area_brief": [
             {"text": f"{article.source}: {article.title}", "url": article.url}
-            for article in (local_articles or [])[:2]
+            for article in (local_articles or [])[:4]
         ],
         "articles": [
             {
                 "title": article.title,
                 "publication": article.source,
                 "url": article.url,
-                "why_it_matters": "This item matched undergraduate admissions, enrollment, or higher-education policy relevance signals.",
+                "why_it_matters": "Matched admissions, enrollment, or higher-education policy relevance signals.",
                 "summary_bullets": [article.summary or article.excerpt or "Review the linked source for details."],
-                "quote": "No short source quote available from the supplied excerpt.",
+                "quote": "",
             }
             for article in articles
         ],
+        "resources": [],
     }
 
 
