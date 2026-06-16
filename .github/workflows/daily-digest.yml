@@ -2,11 +2,11 @@ name: Daily Admissions Digest
 
 on:
   schedule:
-    # Two crons cover both EDT (UTC-4) and EST (UTC-5) so the digest fires
-    # near 7 AM Eastern year-round. Concurrency cancel-in-progress prevents
-    # duplicate sends if both fire on the same day.
-    - cron: "0 7 * * 1-5"
-    - cron: "0 8 * * 1-5"
+    # GitHub cron uses UTC. These two windows cover 7 AM Eastern in both
+    # daylight and standard time; the timezone gate below ensures only the
+    # window that is actually 7 AM America/New_York sends the digest.
+    - cron: "0 11 * * 1-5"
+    - cron: "0 12 * * 1-5"
   workflow_dispatch:
 
 permissions:
@@ -42,7 +42,20 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .
 
+      - name: Confirm scheduled run is in the 7 AM Eastern send window
+        if: github.event_name == 'schedule'
+        run: |
+          set -euo pipefail
+          eastern_hour="$(TZ=America/New_York date +%H)"
+          if [ "${eastern_hour}" != "07" ]; then
+            echo "Current America/New_York hour is ${eastern_hour}; skipping duplicate/non-send window."
+            echo "EASTERN_SEND_WINDOW=false" >> "${GITHUB_ENV}"
+            exit 0
+          fi
+          echo "EASTERN_SEND_WINDOW=true" >> "${GITHUB_ENV}"
+
       - name: Generate and email digest
+        if: github.event_name != 'schedule' || env.EASTERN_SEND_WINDOW == 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
@@ -55,6 +68,7 @@ jobs:
         run: python -m adm_digest.main --send-email
 
       - name: Commit digest archive and seen-article updates
+        if: github.event_name != 'schedule' || env.EASTERN_SEND_WINDOW == 'true'
         run: |
           set -euo pipefail
           branch="${GITHUB_REF_NAME}"
