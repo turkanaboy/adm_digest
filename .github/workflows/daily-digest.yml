@@ -42,17 +42,42 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .
 
-      - name: Confirm scheduled run is in the 7 AM Eastern send window
+      - name: Confirm scheduled run targets the 7 AM Eastern send window
         if: github.event_name == 'schedule'
         run: |
           set -euo pipefail
-          eastern_hour="$(TZ=America/New_York date +%H)"
-          if [ "${eastern_hour}" != "07" ]; then
-            echo "Current America/New_York hour is ${eastern_hour}; skipping duplicate/non-send window."
-            echo "EASTERN_SEND_WINDOW=false" >> "${GITHUB_ENV}"
-            exit 0
-          fi
-          echo "EASTERN_SEND_WINDOW=true" >> "${GITHUB_ENV}"
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, time, timezone
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+          actual_schedule = event.get("schedule")
+          eastern_today = datetime.now(ZoneInfo("America/New_York")).date()
+          eastern_send_time = datetime.combine(
+              eastern_today,
+              time(hour=7),
+              tzinfo=ZoneInfo("America/New_York"),
+          )
+          expected_utc_hour = eastern_send_time.astimezone(timezone.utc).hour
+          expected_schedule = f"0 {expected_utc_hour} * * 1-5"
+
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              if actual_schedule != expected_schedule:
+                  print(
+                      f"Scheduled cron {actual_schedule!r} is not today's 7 AM "
+                      f"America/New_York window ({expected_schedule!r}); skipping duplicate."
+                  )
+                  env_file.write("EASTERN_SEND_WINDOW=false\n")
+              else:
+                  print(
+                      f"Scheduled cron {actual_schedule!r} targets today's 7 AM "
+                      "America/New_York send window. Continuing even if the runner started late."
+                  )
+                  env_file.write("EASTERN_SEND_WINDOW=true\n")
+          PY
 
       - name: Generate and email digest
         if: github.event_name != 'schedule' || env.EASTERN_SEND_WINDOW == 'true'
