@@ -67,3 +67,22 @@ def test_resource_selection_is_limited_to_one() -> None:
     ]
 
     assert select_resource_items(resources, max_resources=1) == resources[:1]
+
+
+def test_selection_prioritizes_distinct_sources_before_second_item_from_same_source() -> None:
+    candidates = [
+        article("High score A1", "Publication A", score=50),
+        article("High score A2", "Publication A", score=49),
+        article("Medium B", "Publication B", score=20),
+        article("Medium C", "Publication C", score=19),
+        article("Medium D", "Publication D", score=18),
+    ]
+
+    result = select_admissions_articles(
+        candidates,
+        max_articles=4,
+        per_source_cap=2,
+        min_distinct_sources=4,
+    )
+
+    assert [item.source for item in result] == ["Publication A", "Publication B", "Publication C", "Publication D"]

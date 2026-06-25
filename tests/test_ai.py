@@ -61,3 +61,22 @@ def test_normalize_digest_output_removes_resources_from_articles_and_backfills()
             "why_it_matters": "Useful reference or resource page for admissions awareness.",
         }
     ]
+
+
+def test_normalize_digest_output_replaces_repeated_dad_joke() -> None:
+    from adm_digest.ai import _normalize_digest_output
+
+    repeated = "I told my suitcase there'd be no vacation this year. Now I'm dealing with emotional baggage."
+    result = {
+        "dad_joke_of_the_day": repeated,
+        "articles": [],
+        "resources": [],
+    }
+    normalized = _normalize_digest_output(
+        result,
+        article_payload=[],
+        resource_payload=[],
+        history=[{"dad_joke_of_the_day": repeated}],
+    )
+
+    assert normalized["dad_joke_of_the_day"] != repeated
