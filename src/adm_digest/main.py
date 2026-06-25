@@ -58,15 +58,19 @@ def select_admissions_articles(
     max_articles: int,
     per_source_cap: int,
     already_selected: list | None = None,
+    min_distinct_sources: int = 0,
 ) -> list:
     """Pick the Top articles with diversity guarantees.
 
     Selection rules:
       1. Prefer primary-tier (dedicated higher-ed) sources first.
-      2. Cap the number of items from any single publication to `per_source_cap`
+      2. First take the best item from as many distinct sources as practical,
+         up to `min_distinct_sources`, so the digest is not dominated by one or
+         two publications when enough outlets have eligible recent articles.
+      3. Cap the number of items from any single publication to `per_source_cap`
          so one outlet can't dominate the digest.
-      3. Within each tier, sort by relevance score then publication date.
-      4. Fall back to secondary-tier sources only after primary is exhausted.
+      4. Within each tier, sort by relevance score then publication date.
+      5. Fall back to secondary-tier sources only after primary is exhausted.
     """
     def _sort_key(item):
         return (
@@ -81,16 +85,26 @@ def select_admissions_articles(
     for item in selected:
         used_by_source[item.source] = used_by_source.get(item.source, 0) + 1
 
-    def _try_add(item) -> bool:
+    def _try_add(item, *, ignore_cap: bool = False) -> bool:
         if item in selected:
             return False
         if len(selected) >= max_articles:
             return False
-        if used_by_source.get(item.source, 0) >= per_source_cap:
+        if not ignore_cap and used_by_source.get(item.source, 0) >= per_source_cap:
             return False
         selected.append(item)
         used_by_source[item.source] = used_by_source.get(item.source, 0) + 1
         return True
+
+    distinct_target = min(max_articles, max(0, min_distinct_sources))
+    if len(used_by_source) < distinct_target:
+        for pool in (primary, secondary):
+            for item in pool:
+                if len(used_by_source) >= distinct_target or len(selected) >= max_articles:
+                    break
+                if used_by_source.get(item.source, 0):
+                    continue
+                _try_add(item)
 
     for item in primary:
         _try_add(item)
@@ -175,10 +189,12 @@ def generate_digest(args: argparse.Namespace) -> Path:
 
     max_articles = int(digest_settings["max_articles"])
     per_source_cap = int(digest_settings.get("per_source_cap", 2))
+    min_distinct_sources = int(digest_settings.get("min_distinct_sources", min(max_articles, 4)))
     selected = select_admissions_articles(
         filtered,
         max_articles=max_articles,
         per_source_cap=per_source_cap,
+        min_distinct_sources=min_distinct_sources,
     )
     if len(selected) < max_articles:
         selected = select_admissions_articles(
@@ -186,6 +202,7 @@ def generate_digest(args: argparse.Namespace) -> Path:
             max_articles=max_articles,
             per_source_cap=per_source_cap,
             already_selected=selected,
+            min_distinct_sources=min_distinct_sources,
         )
     if len(selected) < max_articles:
         selected = select_admissions_articles(
@@ -193,38 +210,13 @@ def generate_digest(args: argparse.Namespace) -> Path:
             max_articles=max_articles,
             per_source_cap=per_source_cap,
             already_selected=selected,
+            min_distinct_sources=min_distinct_sources,
         )
 
     resource_selected = select_resource_items(
         resource_candidates,
         max_resources=int(digest_settings.get("resource_max_items", 1)),
     )
-    if len(selected) < max_articles:
-        selected = select_admissions_articles(
-            supplement_candidates,
-            max_articles=max_articles,
-            per_source_cap=per_source_cap,
-            already_selected=selected,
-        )
-    if len(selected) < max_articles:
-        selected = select_admissions_articles(
-            broad_primary_candidates,
-            max_articles=max_articles,
-            per_source_cap=per_source_cap,
-            already_selected=selected,
-        )
-
-    resource_selected = select_resource_items(
-        resource_candidates,
-        max_resources=int(digest_settings.get("resource_max_items", 1)),
-    )
-    if len(selected) < max_articles:
-        selected = select_admissions_articles(
-            supplement_candidates,
-            max_articles=max_articles,
-            per_source_cap=per_source_cap,
-            already_selected=selected,
-        )
 
     if settings.get("openai", {}).get("article_context_mode") == "public_full_text":
         max_chars = int(settings.get("openai", {}).get("public_full_text_max_chars", 12_000))
@@ -248,6 +240,7 @@ def generate_digest(args: argparse.Namespace) -> Path:
             articles=selected,
             local_articles=local_selected,
             resource_articles=resource_selected,
+            archive_dir=archive_dir,
         )
 
     payload = {

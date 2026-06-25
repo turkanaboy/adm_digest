@@ -119,6 +119,28 @@ sources:
     access: public
     note: "County/community coverage; positive local filter is applied before the area brief."
 
+
+  - name: AACRAO Edge
+    url: https://www.aacrao.org/resources/newsletters-blogs/aacrao-edge
+    rss_url: https://www.aacrao.org/resources/newsletters-blogs/aacrao-edge/rss
+    category: enrollment_operations
+    tier: primary
+    access: public
+
+  - name: EducationNC - Higher Education
+    url: https://www.ednc.org/category/higher-education/
+    rss_url: https://www.ednc.org/category/higher-education/feed/
+    category: national_higher_ed
+    tier: primary
+    access: public
+
+  - name: EdSource - Higher Education
+    url: https://edsource.org/topic/higher-education
+    rss_url: https://edsource.org/topic/higher-education/feed
+    category: national_higher_ed
+    tier: primary
+    access: public
+
   # ----- Secondary: widely-circulated mainstream press (education-focused feeds) -----
   # Only fills remaining slots after primary higher-ed sources are exhausted. These
   # feeds cover broader topics; the admissions-relevance scorer keeps only items
