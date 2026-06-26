@@ -12,10 +12,9 @@ class Source:
     rss_url: str | None = None
     category: str = "general"
     access: str = "public"
-    # tier controls priority in the Top Admissions Articles list:
-    #   "primary"   = dedicated higher-ed / admissions publications. Always preferred.
-    #   "secondary" = mainstream / general-audience publications. Only used when
-    #                 primary tier hasn't filled the slot count.
+    # News sources are treated as primary by default. Article priority is based
+    # on subject relevance: primary subject admissions first, then secondary
+    # subject higher education context when admissions-specific items run short.
     tier: str = "primary"
     note: str | None = None
 

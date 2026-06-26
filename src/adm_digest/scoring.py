@@ -193,13 +193,12 @@ def is_admissions_focused(article: Article, minimum_score: int = 7) -> bool:
     return score_article(article) >= minimum_score
 
 
-def is_college_related_supplement(article: Article, minimum_score: int = 2) -> bool:
-    """True when an item can supplement the Top list after admissions items run short.
+def is_secondary_subject_candidate(article: Article, minimum_score: int = 2) -> bool:
+    """True when an item fits the secondary subject: higher education context.
 
-    These are still national higher-ed / education-policy items, but they may be
-    broader than undergraduate admissions. This gives the digest useful college
-    context when frequent runs and the seen-article file exhaust the narrow
-    admissions queue.
+    All configured news publications are treated as primary sources. When the
+    primary subject (undergraduate admissions) runs short, these higher-ed /
+    education-policy items can fill the Top list as secondary-subject coverage.
     """
     if article.category in LOCAL_CATEGORIES:
         return False
@@ -208,6 +207,11 @@ def is_college_related_supplement(article: Article, minimum_score: int = 2) -> b
     if has_negative_framing(article):
         return False
     return score_article(article) >= minimum_score
+
+
+def is_college_related_supplement(article: Article, minimum_score: int = 2) -> bool:
+    """Backward-compatible alias for secondary-subject higher-ed candidates."""
+    return is_secondary_subject_candidate(article, minimum_score=minimum_score)
 
 
 def is_relevant(article: Article, minimum_score: int = 5) -> bool:

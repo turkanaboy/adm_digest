@@ -13,7 +13,7 @@ from adm_digest.local import is_positive_local_article, local_positivity_score
 from adm_digest.render import render_html, render_markdown
 from adm_digest.scoring import (
     is_admissions_focused,
-    is_college_related_supplement,
+    is_secondary_subject_candidate,
     is_resource_candidate,
     score_article,
 )
@@ -63,14 +63,14 @@ def select_admissions_articles(
     """Pick the Top articles with diversity guarantees.
 
     Selection rules:
-      1. Prefer primary-tier (dedicated higher-ed) sources first.
+      1. Sources are all treated as primary news sources; selection priority is
+         based on article subject relevance, not publication tier.
       2. First take the best item from as many distinct sources as practical,
          up to `min_distinct_sources`, so the digest is not dominated by one or
          two publications when enough outlets have eligible recent articles.
       3. Cap the number of items from any single publication to `per_source_cap`
          so one outlet can't dominate the digest.
-      4. Within each tier, sort by relevance score then publication date.
-      5. Fall back to secondary-tier sources only after primary is exhausted.
+      4. Sort candidates by relevance score then publication date.
     """
     def _sort_key(item):
         return (
@@ -78,8 +78,7 @@ def select_admissions_articles(
             item.published_at or datetime.min.replace(tzinfo=timezone.utc),
         )
 
-    primary = sorted([c for c in candidates if c.tier != "secondary"], key=_sort_key, reverse=True)
-    secondary = sorted([c for c in candidates if c.tier == "secondary"], key=_sort_key, reverse=True)
+    ranked = sorted(candidates, key=_sort_key, reverse=True)
     selected: list = list(already_selected or [])
     used_by_source: dict[str, int] = {}
     for item in selected:
@@ -98,31 +97,25 @@ def select_admissions_articles(
 
     distinct_target = min(max_articles, max(0, min_distinct_sources))
     if len(used_by_source) < distinct_target:
-        for pool in (primary, secondary):
-            for item in pool:
-                if len(used_by_source) >= distinct_target or len(selected) >= max_articles:
-                    break
-                if used_by_source.get(item.source, 0):
-                    continue
-                _try_add(item)
+        for item in ranked:
+            if len(used_by_source) >= distinct_target or len(selected) >= max_articles:
+                break
+            if used_by_source.get(item.source, 0):
+                continue
+            _try_add(item)
 
-    for item in primary:
+    for item in ranked:
         _try_add(item)
         if len(selected) >= max_articles:
             return selected
-    for item in secondary:
-        _try_add(item)
-        if len(selected) >= max_articles:
-            return selected
-    # If per-source caps left us short, relax them and refill from primary then secondary.
+    # If per-source caps left us short, relax them and refill from the same ranked pool.
     if len(selected) < max_articles:
-        for pool in (primary, secondary):
-            for item in pool:
-                if item in selected:
-                    continue
-                if len(selected) >= max_articles:
-                    return selected
-                selected.append(item)
+        for item in ranked:
+            if item in selected:
+                continue
+            if len(selected) >= max_articles:
+                return selected
+            selected.append(item)
     return selected
 
 
@@ -152,8 +145,8 @@ def generate_digest(args: argparse.Namespace) -> Path:
 
     articles = fetch_articles(sources)
     filtered = []
-    supplement_candidates = []
-    broad_primary_candidates = []
+    secondary_subject_candidates = []
+    broad_subject_candidates = []
     resource_candidates = []
     local_candidates = []
     for article in articles:
@@ -171,10 +164,10 @@ def generate_digest(args: argparse.Namespace) -> Path:
         # list never fills up with crime/lawsuit/local-misc items.
         if is_admissions_focused(article):
             filtered.append(article)
-        elif is_college_related_supplement(article):
-            supplement_candidates.append(article)
-        elif article.tier != "secondary" and is_college_related_supplement(article, minimum_score=0):
-            broad_primary_candidates.append(article)
+        elif is_secondary_subject_candidate(article):
+            secondary_subject_candidates.append(article)
+        elif is_secondary_subject_candidate(article, minimum_score=0):
+            broad_subject_candidates.append(article)
         if is_positive_local_article(article):
             local_candidates.append(article)
 
@@ -198,7 +191,7 @@ def generate_digest(args: argparse.Namespace) -> Path:
     )
     if len(selected) < max_articles:
         selected = select_admissions_articles(
-            supplement_candidates,
+            secondary_subject_candidates,
             max_articles=max_articles,
             per_source_cap=per_source_cap,
             already_selected=selected,
@@ -206,7 +199,7 @@ def generate_digest(args: argparse.Namespace) -> Path:
         )
     if len(selected) < max_articles:
         selected = select_admissions_articles(
-            broad_primary_candidates,
+            broad_subject_candidates,
             max_articles=max_articles,
             per_source_cap=per_source_cap,
             already_selected=selected,
