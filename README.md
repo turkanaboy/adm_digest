@@ -8,7 +8,7 @@ This repository generates a weekday admissions digest for Binghamton University 
 - Affirmation of the Day: brief, plainspoken personal encouragement; uplifting but not admissions-specific, flowery, or spiritual.
 - Dad Joke of the Day: intentionally light and not necessarily admissions-related.
 - Binghamton Area Brief: a small section for positive SUNY, Binghamton University, and Binghamton-area items that may help admissions staff speak about place and context.
-- Top Undergraduate Admissions Articles: up to the configured article count, using broader college/higher-ed articles as supplements when admissions-specific items run short.
+- Top Undergraduate Admissions Articles: up to the configured article count, treating all news sources as primary sources while prioritizing the primary subject (admissions) before the secondary subject (broader higher education).
 - Resources: at most one useful hub, guide, journal, index, or reference page. Resource pages are separated from articles, do not count toward the article count, and do not include quotes.
 - Disclaimer: each digest notes that summaries are AI-generated and that readers should consult the linked source for full context.
 

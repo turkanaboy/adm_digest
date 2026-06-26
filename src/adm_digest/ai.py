@@ -206,11 +206,12 @@ ROTATION RULE
 
 ARTICLES (Top Admissions list)
 - Include exactly {article_cap} items when at least {article_cap} usable article inputs are supplied; otherwise include every usable article input.
-- Do not reduce the article count simply because an item is supplemental or from a secondary source.
+- Do not reduce the article count simply because an item is broader higher-education context rather than admissions-specific.
 - Source diversity: do NOT include more than 2 items from the same publication.
 - Draw ONLY from the Admissions article inputs below. Do NOT use Resource candidate inputs as articles.
-- Acceptable topics: undergraduate admissions, enrollment, financial aid, recruitment, application policy, FAFSA, demographic shifts, test policy, college access, AND admissions-adjacent higher-ed stories that could impact admissions or recruitment (federal policy affecting colleges, major rulings, rankings, student loan policy, enrollment trends). If narrow admissions items are exhausted, broader college/higher-ed context supplied in the inputs may supplement the list.
-- Source preference: items from dedicated higher-ed publications (tier=primary) come first. Items from mainstream publications (tier=secondary) should fill remaining slots when primary/admissions-specific supply is exhausted and must still clearly tie to admissions, colleges, or higher-ed.
+- Acceptable primary subject: undergraduate admissions, enrollment, financial aid, recruitment, application policy, FAFSA, demographic shifts, test policy, and college access.
+- Acceptable secondary subject: admissions-adjacent higher-ed stories that could impact admissions or recruitment (federal policy affecting colleges, major rulings, rankings, student loan policy, enrollment trends). If primary-subject admissions items are exhausted, broader college/higher-ed context supplied in the inputs may fill the list.
+- Source handling: treat all news publications as primary sources. Do not demote mainstream publications solely because they are mainstream; rank by subject fit and supplied relevance_score while preserving source diversity.
 - Do NOT include negative news (lawsuits, crime, abuse, scandals).
 - Do NOT include Binghamton-area or campus-local news in this list — those belong to binghamton_area_brief.
 - Do NOT include items whose title/URL looks like a navigation page, hub, index, resource, journal landing page, or category listing (e.g. "Events Calendar", "Arts & Culture", "Staff Directory", "College & University Journal", "About Us") as articles. Resource-like items belong only in resources and do not count toward article count.

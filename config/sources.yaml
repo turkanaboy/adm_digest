@@ -2,9 +2,9 @@
 # rss_url is preferred. If a source has subscription-only access, keep it in
 # link-only mode unless the institution confirms automated access is permitted.
 #
-# tier: "primary"   = dedicated higher-ed / admissions publications. Always preferred.
-#       "secondary" = mainstream / general-audience publications. Only used to
-#                     fill remaining slots when primary tier is exhausted.
+# All configured news publications are treated as primary sources. Selection is
+# subject-based: admissions is the primary subject, and broader higher education
+# is the secondary subject when admissions-specific items run short.
 sources:
   # ----- Primary: higher-ed / admissions trade press -----
   - name: Inside Higher Ed - Admissions
@@ -141,41 +141,40 @@ sources:
     tier: primary
     access: public
 
-  # ----- Secondary: widely-circulated mainstream press (education-focused feeds) -----
-  # Only fills remaining slots after primary higher-ed sources are exhausted. These
-  # feeds cover broader topics; the admissions-relevance scorer keeps only items
-  # whose title/summary clearly touches admissions, enrollment, or higher-ed policy.
+  # ----- Mainstream press: widely-circulated education-focused feeds -----
+  # These are primary sources like the higher-ed trade feeds. Their articles are
+  # selected by subject fit: admissions first, broader higher-ed context second.
   - name: The New York Times - Education
     url: https://www.nytimes.com/section/education
     rss_url: https://rss.nytimes.com/services/xml/rss/nyt/Education.xml
     category: national_general
-    tier: secondary
+    tier: primary
     access: public
 
   - name: NPR - Education
     url: https://www.npr.org/sections/education/
     rss_url: https://feeds.npr.org/1013/rss.xml
     category: national_general
-    tier: secondary
+    tier: primary
     access: public
 
   - name: The Atlantic - Education
     url: https://www.theatlantic.com/education/
     rss_url: https://www.theatlantic.com/feed/channel/education/
     category: national_general
-    tier: secondary
+    tier: primary
     access: public
 
   - name: Forbes - Education
     url: https://www.forbes.com/education/
     rss_url: https://www.forbes.com/education/feed/
     category: national_general
-    tier: secondary
+    tier: primary
     access: public
 
   - name: Politico - Education
     url: https://www.politico.com/news/education
     rss_url: https://rss.politico.com/education.xml
     category: national_general
-    tier: secondary
+    tier: primary
     access: public

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from adm_digest.main import select_admissions_articles, select_resource_items
 from adm_digest.models import Article
-from adm_digest.scoring import is_admissions_focused, is_college_related_supplement, is_resource_candidate
+from adm_digest.scoring import is_admissions_focused, is_secondary_subject_candidate, is_resource_candidate
 
 
 def article(title: str, source: str, tier: str = "primary", score: int = 1) -> Article:
@@ -17,24 +17,24 @@ def article(title: str, source: str, tier: str = "primary", score: int = 1) -> A
     )
 
 
-def test_supplemental_selection_preserves_existing_and_uses_secondary() -> None:
+def test_secondary_subject_selection_preserves_existing_sources() -> None:
     selected = [article("Admissions FAFSA story", "Inside Higher Ed", score=20)]
-    supplemental = [
+    secondary_subject = [
         article("College enrollment trends to watch", "NPR", tier="secondary", score=6),
         article("Higher education policy update", "Politico", tier="secondary", score=5),
     ]
 
     result = select_admissions_articles(
-        supplemental,
+        secondary_subject,
         max_articles=3,
         per_source_cap=2,
         already_selected=selected,
     )
 
-    assert result == selected + supplemental
+    assert result == selected + secondary_subject
 
 
-def test_college_related_supplement_accepts_broader_higher_ed_context() -> None:
+def test_secondary_subject_accepts_broader_higher_ed_context() -> None:
     candidate = Article(
         title="Colleges prepare for new federal higher education rules",
         url="https://example.com/context",
@@ -43,7 +43,7 @@ def test_college_related_supplement_accepts_broader_higher_ed_context() -> None:
         category="national_general",
     )
 
-    assert is_college_related_supplement(candidate)
+    assert is_secondary_subject_candidate(candidate)
 
 
 def test_resource_candidate_is_not_counted_as_article() -> None:
@@ -57,7 +57,7 @@ def test_resource_candidate_is_not_counted_as_article() -> None:
 
     assert is_resource_candidate(resource)
     assert not is_admissions_focused(resource)
-    assert not is_college_related_supplement(resource)
+    assert not is_secondary_subject_candidate(resource)
 
 
 def test_resource_selection_is_limited_to_one() -> None:
@@ -86,3 +86,18 @@ def test_selection_prioritizes_distinct_sources_before_second_item_from_same_sou
     )
 
     assert [item.source for item in result] == ["Publication A", "Publication B", "Publication C", "Publication D"]
+
+
+def test_selection_does_not_demote_mainstream_source_tier() -> None:
+    candidates = [
+        article("Higher score mainstream", "NPR", tier="secondary", score=50),
+        article("Lower score trade", "Inside Higher Ed", tier="primary", score=10),
+    ]
+
+    result = select_admissions_articles(
+        candidates,
+        max_articles=2,
+        per_source_cap=2,
+    )
+
+    assert [item.source for item in result] == ["NPR", "Inside Higher Ed"]
