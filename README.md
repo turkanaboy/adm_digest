@@ -43,6 +43,8 @@ Set these repository secrets before enabling production delivery:
 - `SMTP_PASSWORD`: SMTP password or app password.
 - `EMAIL_FROM`: Sender address.
 - `EMAIL_TO`: Comma-separated team distribution list recipients.
+- `CHIEFOFSTAFF_DIGEST_EXPORT_URL`: Optional ChiefOfStaff subscriber export URL.
+- `CHIEFOFSTAFF_DIGEST_EXPORT_TOKEN`: Required when the ChiefOfStaff export URL is set.
 
 Optional Slack posting:
 
@@ -92,6 +94,7 @@ Use this only if Binghamton SMTP is blocked while you wait for an approved insti
 ### Notes
 
 - `EMAIL_TO` supports comma-separated recipients, so the pilot can become `person1@binghamton.edu,person2@binghamton.edu` or a single distribution-list address later.
+- When ChiefOfStaff subscriber management is enabled, keep `EMAIL_TO` as a fallback or seed list and set `CHIEFOFSTAFF_DIGEST_EXPORT_URL` plus `CHIEFOFSTAFF_DIGEST_EXPORT_TOKEN` so active ChiefOfStaff subscribers are appended at send time.
 - Do not store API keys, SMTP passwords, or app passwords in files, commits, Slack messages, or screenshots.
 - GitHub Actions secrets are referenced by the workflow but are not printed by this app.
 

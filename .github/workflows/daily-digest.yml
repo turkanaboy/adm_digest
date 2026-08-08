@@ -50,7 +50,9 @@ jobs:
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }},mrussell@binghamton.edu
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          CHIEFOFSTAFF_DIGEST_EXPORT_URL: ${{ secrets.CHIEFOFSTAFF_DIGEST_EXPORT_URL }}
+          CHIEFOFSTAFF_DIGEST_EXPORT_TOKEN: ${{ secrets.CHIEFOFSTAFF_DIGEST_EXPORT_TOKEN }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: python -m adm_digest.main --send-email
 
