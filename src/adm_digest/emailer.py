@@ -5,6 +5,8 @@ import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr
 
+from adm_digest.recipients import load_recipients
+
 
 def send_email(subject: str, body: str, html_body: str | None = None, from_name: str | None = None) -> None:
     host = os.environ.get("SMTP_HOST")
@@ -12,10 +14,12 @@ def send_email(subject: str, body: str, html_body: str | None = None, from_name:
     username = os.environ.get("SMTP_USERNAME")
     password = os.environ.get("SMTP_PASSWORD")
     sender = os.environ.get("EMAIL_FROM")
-    recipients = [item.strip() for item in os.environ.get("EMAIL_TO", "").split(",") if item.strip()]
+    recipients = load_recipients()
 
     if not all([host, username, password, sender]) or not recipients:
-        raise RuntimeError("Email is enabled but SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD, EMAIL_FROM, and EMAIL_TO are required")
+        raise RuntimeError(
+            "Email is enabled but SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD, EMAIL_FROM, and at least one recipient source are required"
+        )
 
     message = EmailMessage()
     message["Subject"] = subject
